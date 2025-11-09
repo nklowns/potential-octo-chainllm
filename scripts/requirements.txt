@@ -1,0 +1,4 @@
+requests>=2.31.0
+ollama>=0.4.0
+urllib3>=2.0.0==2.31.0
+pathlib2==2.3.7.post1

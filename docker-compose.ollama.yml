@@ -1,0 +1,35 @@
+# docker-compose.ollama.yml
+networks:
+  proxy_net:
+    external: true
+
+volumes:
+  ollama_data:
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    networks:
+      - proxy_net
+
+    env_file:
+      - .env
+    volumes:
+      - ollama_data:/root/.ollama
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy_net
+      - traefik.http.services.ollama.loadbalancer.server.port=11434
+      - traefik.http.routers.ollama.entrypoints=websecure
+      - traefik.http.routers.ollama.rule=Host(`ollama.${DOMAIN_DUCKDNS}`) || Host(`ollama.${DOMAIN_LOCAL}`)

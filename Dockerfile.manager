@@ -1,0 +1,36 @@
+# Dockerfile para os scripts Python do pipeline
+FROM python:3.11-slim AS base
+
+# Define o diretório de trabalho
+WORKDIR /app
+
+# Copia o arquivo de dependências primeiro para aproveitar o cache do Docker
+COPY scripts/requirements.txt .
+
+# Instala as dependências
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Cria um usuário não-root para segurança
+RUN useradd --create-home --shell /bin/bash appuser
+
+# Criar diretórios de trabalho com permissões corretas ANTES de trocar de usuário
+RUN mkdir -p /home/appuser/app/output/scripts \
+             /home/appuser/app/output/audio \
+             /home/appuser/app/output/images && \
+    chown -R appuser:appuser /home/appuser/app
+
+USER appuser
+
+# Define o diretório de trabalho para o usuário
+WORKDIR /home/appuser/app
+
+# Copia os scripts da aplicação
+COPY --chown=appuser:appuser scripts/ .
+
+# Expõe os diretórios que serão montados como volumes
+VOLUME /home/appuser/app/input
+VOLUME /home/appuser/app/output
+VOLUME /home/appuser/app/config
+
+# Define um entrypoint padrão (pode ser sobrescrito no docker-compose)
+CMD ["echo", "Imagem 'audio-pipeline-app' pronta. Especifique um comando no docker-compose."]

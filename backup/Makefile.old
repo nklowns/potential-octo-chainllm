@@ -1,0 +1,102 @@
+# Makefile
+include .env
+
+.PHONY: help build tts images manager image-manager pipeline clean monitor test-network migrate-piper
+
+# Configurações
+INPUT_FILE ?= input/topics.txt
+
+help:
+	@echo "🎯 Comandos disponíveis:"
+	@echo ""
+	@echo "🔧 Setup Inicial (IMPORTANTE):"
+	@echo "  migrate-piper    - Migra Piper TTS para v1.3.1 (GPL) - EXECUTE PRIMEIRO!"
+	@echo "  build            - Constrói a imagem audio-pipeline-app"
+	@echo "  test-network     - Testa conectividade na rede"
+	@echo ""
+	@echo "🚀 Execução:"
+	@echo "  tts              - Inicia serviço TTS com Traefik"
+	@echo "  images           - Inicia serviço de Geração de Imagens"
+	@echo "  manager          - Executa pipeline de geração de scripts e áudio"
+	@echo "  image-manager    - Executa pipeline de geração de imagens"
+	@echo "  pipeline         - Pipeline completo (build + tts + manager)"
+	@echo "  full-pipeline    - Pipeline completo incluindo imagens"
+	@echo ""
+	@echo "📊 Monitoramento:"
+	@echo "  monitor          - Monitora resultados"
+	@echo "  test-services    - Testa acessibilidade dos serviços"
+	@echo ""
+	@echo "🧹 Limpeza:"
+	@echo "  clean            - Limpa containers e volumes"
+	@echo ""
+	@echo "💡 Primeiro uso: make migrate-piper && make pipeline"
+	@echo "📚 Documentação completa: GUIA_EXECUCAO.md"
+
+migrate-piper:
+	@echo "🔄 Migrando Piper TTS para v1.3.1 (GPL)..."
+	@$(MAKE) -f Makefile.piper migrate
+
+build:
+	@echo "� Construindo imagem audio-pipeline-app..."
+	docker-compose -f docker-compose.manager.yml build
+
+tts:
+	@echo "🔊 Iniciando serviço TTS com Traefik..."
+	docker-compose -f docker-compose.tts.yml up -d
+
+images:
+	@echo "🖼️ Iniciando serviço de Geração de Imagens com Traefik..."
+	docker-compose -f docker-compose.images.yml up -d
+
+manager: build
+	@echo "🎯 Executando pipeline de geração de scripts e áudio..."
+	INPUT_FILE=$(INPUT_FILE) docker-compose -f docker-compose.manager.yml up manager
+
+image-manager: build
+	@echo "🎨 Executando pipeline de geração de imagens..."
+	docker-compose -f docker-compose.manager.yml run --rm image-generator
+
+pipeline: build tts manager
+
+monitor:
+	@echo "📊 Monitorando resultados..."
+	@echo "=== SCRIPTS GERADOS ==="
+	@ls -la output/scripts/ 2>/dev/null | grep -E "(script_.*\.txt|total)" || echo "Nenhum script encontrado"
+	@echo "=== ÁUDIOS GERADOS ==="
+	@ls -la output/audio/ 2>/dev/null | grep -E "(script_.*\.wav|total)" || echo "Nenhum áudio encontrado"
+	@echo "=== IMAGENS GERADAS ==="
+	@ls -la output/images/ 2>/dev/null | grep -E "(script_.*\.png|total)" || echo "Nenhuma imagem encontrada"
+	@echo "=== CONTAINERS ATIVOS ==="
+	@docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(piper-tts|pipeline-manager|stable-diffusion-api)" || echo "Nenhum container ativo"
+
+clean:
+	@echo "🧹 Limpando ambiente..."
+	docker-compose -f docker-compose.tts.yml down
+	docker-compose -f docker-compose.images.yml down
+	docker-compose -f docker-compose.manager.yml down
+	@echo "✅ Limpeza concluída"
+
+test-network:
+	@echo "🔗 Testando conectividade na rede $(TRAEFIK_NETWORK)..."
+	@docker network inspect $(TRAEFIK_NETWORK) >/dev/null 2>&1 && echo "✅ Rede $(TRAEFIK_NETWORK) existe" || echo "❌ Rede $(TRAEFIK_NETWORK) não encontrada"
+	@echo "🌐 Testando DNS interno..."
+	@docker run --rm --network $(TRAEFIK_NETWORK) alpine nslookup piper-tts >/dev/null 2>&1 && echo "✅ DNS para TTS funcionando" || echo "❌ DNS para TTS com problemas"
+	@docker run --rm --network $(TRAEFIK_NETWORK) alpine nslookup stable-diffusion-api >/dev/null 2>&1 && echo "✅ DNS para SD funcionando" || echo "❌ DNS para SD com problemas"
+
+test-services:
+	@echo "🧪 Testando serviços..."
+	@echo "Testando TTS..."
+	@curl -s http://piper-tts.$(DOMAIN_DUCKDNS) >/dev/null && echo "✅ TTS acessível via Traefik" || echo "❌ TTS não acessível"
+	@echo "Testando Stable Diffusion..."
+	@curl -s http://sd-api.$(DOMAIN_DUCKDNS) >/dev/null && echo "✅ Stable Diffusion acessível via Traefik" || echo "❌ Stable Diffusion não acessível"
+	@echo "Testando Ollama..."
+	@curl -s $(OLLAMA_BASE_URL)/api/tags >/dev/null && echo "✅ Ollama acessível" || echo "❌ Ollama não acessível"
+
+dev: clean test-network build pipeline monitor
+
+# Comando para desenvolvimento rápido com Ollama local
+local-ollama:
+	@echo "🤖 Iniciando Ollama local..."
+	docker-compose -f docker-compose.ollama.yml up -d
+
+full-pipeline: build local-ollama images pipeline image-manager

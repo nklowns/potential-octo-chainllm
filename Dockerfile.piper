@@ -1,0 +1,110 @@
+# Dockerfile baseado no oficial do OHF-Voice/piper1-gpl
+# Referência: https://github.com/OHF-Voice/piper1-gpl/blob/main/Dockerfile
+FROM python:3.12 AS builder
+
+# Instalar dependências de build (CMake, Ninja, Git)
+RUN apt-get update && \
+    apt-get install --yes --no-install-recommends \
+      build-essential \
+      cmake \
+      ninja-build \
+      git && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Clonar repositório e fazer build completo usando scripts oficiais
+RUN git clone --depth 1 https://github.com/OHF-Voice/piper1-gpl.git /tmp/piper && \
+    cp -r /tmp/piper/* /app/ && \
+    rm -rf /tmp/piper && \
+    pip3 install --no-cache-dir build scikit-build cmake && \
+    python3 script/setup --dev && \
+    python3 script/dev_build && \
+    python3 script/package
+
+# -----------------------------------------------------------------------------
+# Imagem final (otimizada)
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim
+
+# Metadados
+LABEL org.opencontainers.image.title="Piper TTS" \
+      org.opencontainers.image.description="Fast local neural TTS (OHF-Voice fork)" \
+      org.opencontainers.image.version="1.3.0+" \
+      org.opencontainers.image.licenses="GPL-3.0" \
+      org.opencontainers.image.source="https://github.com/OHF-Voice/piper1-gpl"
+
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
+# Instalar runtime dependencies
+RUN apt-get update && \
+    apt-get install --yes --no-install-recommends \
+      curl \
+      ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Criar usuário não-root
+RUN useradd -m -u 1000 -s /bin/bash piper
+
+WORKDIR /app
+
+# Copiar wheel compilado do builder
+COPY --from=builder /app/dist/piper_tts-*linux*.whl ./dist/
+
+# Instalar Piper + dependências HTTP
+RUN pip3 install ./dist/piper_tts-*linux*.whl && \
+    pip3 install 'flask>=3,<4'
+
+# Criar diretórios
+RUN mkdir -p /data /app/output && \
+    chown -R piper:piper /data /app
+
+# Script de inicialização
+COPY --chown=piper:piper <<'EOF' /entrypoint.sh
+#!/usr/bin/env bash
+set -e
+
+DATA_DIR='/data'
+COMMAND="$1"
+shift
+
+# Download da voz pt_BR-faber-medium se não existir
+if [ ! -f "${DATA_DIR}/pt_BR-faber-medium.onnx" ]; then
+    echo "📥 Baixando voz pt_BR-faber-medium..."
+    python3 -m piper.download_voices pt_BR-faber-medium --data-dir "${DATA_DIR}"
+fi
+
+case "${COMMAND}" in
+  speak)
+    exec python3 -m piper --data-dir "${DATA_DIR}" "$@"
+    ;;
+  download)
+    exec python3 -m piper.download_voices --data-dir "${DATA_DIR}" "$@"
+    ;;
+  server)
+    echo "🚀 Iniciando Piper TTS HTTP Server v1.3.1 (GPL)"
+    exec python3 -m piper.http_server --data-dir "${DATA_DIR}" "$@"
+    ;;
+  ""|help|-h|--help)
+    echo "Usage: <command> [args...]"
+    echo "Available commands:"
+    echo "  speak        Synthesize audio from text"
+    echo "  download     Download voices"
+    echo "  server       Run HTTP server (default)"
+    exit 0
+    ;;
+  *)
+    echo "Error: Unknown command '$COMMAND'"
+    echo "Run with --help for usage."
+    exit 1
+    ;;
+esac
+EOF
+
+RUN chmod +x /entrypoint.sh
+
+USER piper
+EXPOSE 5000
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["server", "-m", "pt_BR-faber-medium", "--host", "0.0.0.0", "--port", "5000"]

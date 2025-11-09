@@ -1,0 +1,233 @@
+# ============================================
+# Audio Pipeline - Makefile Consolidado
+# ============================================
+include .env
+
+.PHONY: help
+
+# Configurações
+INPUT_FILE ?= input/topics.txt
+COMPOSE_TTS := docker-compose.tts.yml
+COMPOSE_MANAGER := docker-compose.manager.yml
+COMPOSE_IMAGES := docker-compose.images.yml
+COMPOSE_OLLAMA := docker-compose.ollama.yml
+
+# ============================================
+# HELP
+# ============================================
+help: ## Mostra esta mensagem de ajuda
+	@echo "┌────────────────────────────────────────────────────────────┐"
+	@echo "│  🎯 Audio Pipeline - Comandos Disponíveis                 │"
+	@echo "└────────────────────────────────────────────────────────────┘"
+	@echo ""
+	@echo "═══ 🔧 SETUP INICIAL ═══"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; /^[^#]/ && /## SETUP/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, substr($$2, 8)}'
+	@echo ""
+	@echo "═══ 🎙️  PIPER TTS ═══"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; /^[^#]/ && /## TTS/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, substr($$2, 6)}'
+	@echo ""
+	@echo "═══ 🤖 OLLAMA ═══"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; /^[^#]/ && /## OLLAMA/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, substr($$2, 9)}'
+	@echo ""
+	@echo "═══ 🚀 PIPELINE ═══"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; /^[^#]/ && /## PIPELINE/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, substr($$2, 11)}'
+	@echo ""
+	@echo "═══ 📊 MONITORAMENTO ═══"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; /^[^#]/ && /## MONITOR/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, substr($$2, 10)}'
+	@echo ""
+	@echo "═══ 🧹 LIMPEZA ═══"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; /^[^#]/ && /## CLEAN/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, substr($$2, 8)}'
+	@echo ""
+	@echo "💡 Primeiro uso: make setup && make pipeline"
+	@echo "📚 Documentação: docs/DEPLOYMENT.md"
+
+# ============================================
+# SETUP
+# ============================================
+setup: ## SETUP: Setup completo do projeto
+	@echo "🔧 Configurando projeto..."
+	@$(MAKE) check-env
+	@$(MAKE) check-network
+	@$(MAKE) build
+	@echo "✅ Setup concluído!"
+
+check-env: ## SETUP: Verifica se .env existe
+	@test -f .env || (echo "❌ .env não encontrado! Copie .env.example para .env" && exit 1)
+	@echo "✅ .env encontrado"
+
+check-network: ## SETUP: Verifica rede Traefik
+	@echo "🔗 Verificando rede $(TRAEFIK_NETWORK)..."
+	@docker network inspect $(TRAEFIK_NETWORK) >/dev/null 2>&1 && \
+		echo "✅ Rede $(TRAEFIK_NETWORK) existe" || \
+		(echo "❌ Rede $(TRAEFIK_NETWORK) não encontrada! Inicie o Traefik primeiro." && exit 1)
+
+build: ## SETUP: Build da imagem pipeline
+	@echo "🔨 Construindo imagem audio-pipeline-app..."
+	@docker-compose -f $(COMPOSE_MANAGER) build
+
+# ============================================
+# PIPER TTS
+# ============================================
+tts-build: ## TTS: Build da imagem Piper TTS
+	@echo "🔨 Building Piper TTS v1.3.1 (GPL)..."
+	@docker-compose -f $(COMPOSE_TTS) build piper-tts
+
+tts-up: ## TTS: Inicia Piper TTS
+	@echo "🚀 Iniciando Piper TTS..."
+	@docker-compose -f $(COMPOSE_TTS) up -d piper-tts
+	@echo "✅ Piper TTS iniciado!"
+
+tts-down: ## TTS: Para Piper TTS
+	@echo "🛑 Parando Piper TTS..."
+	@docker-compose -f $(COMPOSE_TTS) down
+
+tts-logs: ## TTS: Logs do Piper TTS
+	@docker-compose -f $(COMPOSE_TTS) logs -f piper-tts
+
+tts-status: ## TTS: Status do Piper TTS
+	@echo "📊 Status do Piper TTS:"
+	@docker-compose -f $(COMPOSE_TTS) ps piper-tts
+	@docker inspect --format='Health: {{.State.Health.Status}}' piper-tts 2>/dev/null || echo "Container não encontrado"
+
+tts-test: ## TTS: Testa API do Piper TTS
+	@echo "🧪 Testando Piper TTS..."
+	@curl -sk https://$(TTS_SERVICE_NAME).$(DOMAIN_DUCKDNS)/voices | jq -r '.[0].name' || echo "❌ Falha"
+	@echo "✅ Teste concluído"
+
+tts-migrate: ## TTS: Migração completa do Piper TTS
+	@echo "🔄 Migrando Piper TTS para v1.3.1 (GPL)..."
+	@$(MAKE) tts-down
+	@$(MAKE) tts-build
+	@$(MAKE) tts-up
+	@sleep 5
+	@$(MAKE) tts-test
+	@echo "✅ Migração concluída!"
+
+tts-shell: ## TTS: Shell no container Piper
+	@docker exec -it piper-tts bash
+
+# ============================================
+# OLLAMA
+# ============================================
+ollama-up: ## OLLAMA: Inicia Ollama local
+	@echo "🤖 Iniciando Ollama local..."
+	@docker-compose -f $(COMPOSE_OLLAMA) up -d
+	@echo "✅ Ollama iniciado!"
+
+ollama-down: ## OLLAMA: Para Ollama local
+	@docker-compose -f $(COMPOSE_OLLAMA) down
+
+ollama-logs: ## OLLAMA: Logs do Ollama
+	@docker-compose -f $(COMPOSE_OLLAMA) logs -f ollama
+
+ollama-test: ## OLLAMA: Testa Ollama
+	@echo "🧪 Testando Ollama..."
+	@curl -sk $(OLLAMA_BASE_URL)/api/tags | jq -r '.models[0].name' || echo "❌ Falha"
+
+ollama-pull: ## OLLAMA: Pull do modelo configurado
+	@echo "📥 Baixando modelo $(OLLAMA_MODEL)..."
+	@docker exec -it ollama ollama pull $(OLLAMA_MODEL)
+
+# ============================================
+# PIPELINE
+# ============================================
+pipeline: build tts-up manager ## PIPELINE: Executa pipeline completo (scripts + áudio)
+
+pipeline-full: build ollama-up tts-up manager ## PIPELINE: Pipeline com Ollama local
+
+manager: ## PIPELINE: Executa geração de scripts e áudio
+	@echo "🎯 Executando pipeline..."
+	@INPUT_FILE=$(INPUT_FILE) docker-compose -f $(COMPOSE_MANAGER) up manager
+
+image-generator: ## PIPELINE: Executa geração de imagens
+	@echo "🎨 Executando geração de imagens..."
+	@docker-compose -f $(COMPOSE_MANAGER) run --rm image-generator
+
+# ============================================
+# MONITORAMENTO
+# ============================================
+monitor: ## MONITOR: Monitora outputs gerados
+	@echo "📊 Monitorando outputs..."
+	@echo ""
+	@echo "═══ SCRIPTS ═══"
+	@ls -lh output/scripts/*.txt 2>/dev/null | tail -n +2 | awk '{print $$9, "(" $$5 ")"}' || echo "  Nenhum script"
+	@echo ""
+	@echo "═══ ÁUDIOS ═══"
+	@ls -lh output/audio/*.wav 2>/dev/null | tail -n +2 | awk '{print $$9, "(" $$5 ")"}' || echo "  Nenhum áudio"
+	@echo ""
+	@echo "═══ IMAGENS ═══"
+	@ls -lh output/images/*.png 2>/dev/null | tail -n +2 | awk '{print $$9, "(" $$5 ")"}' || echo "  Nenhuma imagem"
+	@echo ""
+	@echo "═══ CONTAINERS ═══"
+	@docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(piper-tts|ollama|pipeline-manager)" || echo "  Nenhum container ativo"
+
+logs: ## MONITOR: Logs do pipeline manager
+	@docker-compose -f $(COMPOSE_MANAGER) logs -f manager
+
+status: ## MONITOR: Status de todos os serviços
+	@echo "📊 Status dos serviços:"
+	@echo ""
+	@docker-compose -f $(COMPOSE_TTS) ps 2>/dev/null
+	@docker-compose -f $(COMPOSE_MANAGER) ps 2>/dev/null
+
+status-full: ## MONITOR: Status completo com Ollama
+	@$(MAKE) status
+	@docker-compose -f $(COMPOSE_OLLAMA) ps 2>/dev/null
+
+test-services: ## MONITOR: Testa todos os serviços
+	@echo "🧪 Testando serviços..."
+	@echo ""
+	@$(MAKE) tts-test
+
+test-services-full: ## MONITOR: Testa todos os serviços com Ollama
+	@$(MAKE) test-services
+	@$(MAKE) ollama-test
+
+# ============================================
+# LIMPEZA
+# ============================================
+clean: ## CLEAN: Para todos os containers
+	@echo "🧹 Limpando containers..."
+	@docker-compose -f $(COMPOSE_TTS) down
+	@docker-compose -f $(COMPOSE_OLLAMA) down
+	@docker-compose -f $(COMPOSE_MANAGER) down
+	@echo "✅ Containers parados"
+
+clean-all: clean ## CLEAN: Para containers e remove volumes
+	@echo "🗑️  Removendo volumes..."
+	@docker-compose -f $(COMPOSE_TTS) down -v
+	@docker volume rm piper-voices 2>/dev/null || true
+	@echo "✅ Volumes removidos"
+
+clean-all-full: clean-all ## CLEAN: Limpa tudo incluindo volumes Ollama
+	@echo "🗑️  Removendo volumes Ollama..."
+	@docker-compose -f $(COMPOSE_OLLAMA) down -v
+	@docker volume rm ollama_data 2>/dev/null || true
+	@echo "✅ Volumes removidos"
+
+clean-outputs: ## CLEAN: Limpa outputs gerados
+	@echo "🗑️  Limpando outputs..."
+	@rm -f output/scripts/*.txt
+	@rm -f output/audio/*.wav
+	@rm -f output/images/*.png
+	@echo "✅ Outputs limpos"
+
+backup: ## CLEAN: Backup de outputs e config
+	@echo "💾 Criando backup..."
+	@mkdir -p backups
+	@tar -czf backups/outputs_$$(date +%Y%m%d_%H%M%S).tar.gz output/
+	@tar -czf backups/config_$$(date +%Y%m%d_%H%M%S).tar.gz config/ input/
+	@echo "✅ Backup criado em backups/"
+
+# ============================================
+# ATALHOS
+# ============================================
+dev: clean setup pipeline monitor ## Desenvolvimento rápido
+
+.DEFAULT_GOAL := help
