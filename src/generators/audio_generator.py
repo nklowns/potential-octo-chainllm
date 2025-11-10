@@ -8,10 +8,6 @@ import time
 import json
 from pathlib import Path
 
-# Adicionando o caminho do projeto ao sys.path para importação relativa
-import sys
-sys.path.append(str(Path(__file__).resolve().parents[2]))
-
 from src.pipeline import config
 from src.clients.tts_client import TTSClient
 from src.pipeline.exceptions import TTSClientError

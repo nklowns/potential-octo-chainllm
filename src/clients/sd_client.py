@@ -2,11 +2,7 @@ import logging
 import requests
 import base64
 from typing import Optional
-
-# Adicionando o caminho do projeto ao sys.path para importação relativa
-import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.pipeline import config
 from src.pipeline.exceptions import ImageGeneratorError

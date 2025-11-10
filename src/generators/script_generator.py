@@ -6,14 +6,10 @@ Generates video scripts from topics using LLMs via Ollama.
 import time
 import logging
 from typing import List, Optional
+from pathlib import Path
 
 from ollama import Client, ResponseError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-
-# Adicionando o caminho do projeto ao sys.path para importação relativa
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.pipeline import config
 from src.pipeline.exceptions import ModelNotFoundError, OllamaClientError
