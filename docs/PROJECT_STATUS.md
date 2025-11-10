@@ -314,14 +314,17 @@ supertest/
 ├── docker/
 └── deploy/
 
-Realidade:
-supertest/
-├── scripts/    # Python soltos
+Realidade ATUAL (Após Reestruturação):
+audio-pipeline/
+├── src/        # Python modules organizados
 ├── config/
-├── input/
-└── output/
+├── data/
+│   ├── input/
+│   └── output/
+├── docker/
+└── deploy/
 ```
-**Não implementado:** Reestruturação completa de diretórios
+**✅ IMPLEMENTADO:** Reestruturação completa de diretórios
 
 ---
 

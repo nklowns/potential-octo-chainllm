@@ -51,7 +51,7 @@
 # docker-compose.manager.yml - IMPLEMENTADO
 manager:
   healthcheck:
-    test: ["CMD-SHELL", "python -c 'import os; os.path.exists(\"/home/appuser/app/input/topics.txt\")' || exit 1"]
+    test: ["CMD-SHELL", "python -c 'import os; os.path.exists(\"/home/appuser/app/data/input/topics.txt\")' || exit 1"]
     interval: 10s
     timeout: 5s
     retries: 3

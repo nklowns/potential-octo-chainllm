@@ -118,7 +118,7 @@ TTS_VOICE=pt_BR-faber-medium
 ### 3. Crie Arquivo de Tópicos
 
 ```bash
-cat > input/topics.txt <<EOF
+cat > data/input/topics.txt <<EOF
 Tecnologia Docker para desenvolvedores
 Inteligência Artificial no dia a dia
 Python para automação de tarefas
@@ -170,16 +170,16 @@ make help            # Lista todos os comandos
 # 1. Primeiro uso
 make setup
 
-# 2. Adicionar tópicos em input/topics.txt
-nano input/topics.txt
+# 2. Adicionar tópicos em data/input/topics.txt
+nano data/input/topics.txt
 
 # 3. Executar pipeline
 make pipeline
 
 # 4. Verificar resultados
 make monitor
-ls -lh output/scripts/
-ls -lh output/audio/
+ls -lh data/output/scripts/
+ls -lh data/output/audio/
 
 # 5. Backup (opcional)
 make backup
@@ -190,13 +190,14 @@ make backup
 ### Estrutura de Diretórios
 
 ```
-supertest/
-├── input/              # Entrada (tópicos)
-│   └── topics.txt
-├── output/             # Saídas geradas
-│   ├── scripts/        # Roteiros .txt
-│   ├── audio/          # Áudio .wav
-│   └── images/         # Imagens .png (futuro)
+audio-pipeline/
+├── data/               # Dados do pipeline
+│   ├── input/          # Entrada (tópicos)
+│   │   └── topics.txt
+│   └── output/         # Saídas geradas
+│       ├── scripts/    # Roteiros .txt
+│       ├── audio/      # Áudio .wav
+│       └── images/     # Imagens .png (futuro)
 ├── config/             # Configurações
 │   └── voices.json
 ├── docs/               # Documentação detalhada
@@ -225,9 +226,9 @@ TTS_NOISE_W_SCALE=0.8       # Variabilidade de fonemas
 
 **Caminhos (Container):**
 ```bash
-INPUT_FILE=/home/appuser/app/input/topics.txt
-OUTPUT_SCRIPTS=/home/appuser/app/output/scripts
-OUTPUT_AUDIO=/home/appuser/app/output/audio
+INPUT_FILE=/home/appuser/app/data/input/topics.txt
+OUTPUT_SCRIPTS=/home/appuser/app/data/output/scripts
+OUTPUT_AUDIO=/home/appuser/app/data/output/audio
 ```
 
 ## 📚 Documentação Completa
