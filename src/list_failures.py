@@ -14,7 +14,7 @@ from src.pipeline import config as pipeline_config
 
 def list_failures():
     """List all failed artifacts from the manifest."""
-    manifest_path = pipeline_config.OUTPUT_DIR / "run_manifest.json"
+    manifest_path = pipeline_config.OUTPUT_DIR / "quality_gates" / "run_manifest.json"
     
     if not manifest_path.exists():
         print(f"❌ No manifest found at {manifest_path}")
@@ -75,12 +75,12 @@ def list_failures():
     if total_failures > 0:
         print()
         print("📊 Detailed reports available at:")
-        print(f"  Scripts: {pipeline_config.OUTPUT_DIR / 'reports' / 'scripts'}")
-        print(f"  Audio:   {pipeline_config.OUTPUT_DIR / 'reports' / 'audio'}")
+        print(f"  Scripts: {pipeline_config.OUTPUT_DIR / 'quality_gates' / 'reports' / 'scripts'}")
+        print(f"  Audio:   {pipeline_config.OUTPUT_DIR / 'quality_gates' / 'reports' / 'audio'}")
         print()
         print("🚫 Quarantined artifacts at:")
-        print(f"  Scripts: {pipeline_config.OUTPUT_DIR / 'quarantine' / 'scripts'}")
-        print(f"  Audio:   {pipeline_config.OUTPUT_DIR / 'quarantine' / 'audio'}")
+        print(f"  Scripts: {pipeline_config.OUTPUT_DIR / 'quality_gates' / 'quarantine' / 'scripts'}")
+        print(f"  Audio:   {pipeline_config.OUTPUT_DIR / 'quality_gates' / 'quarantine' / 'audio'}")
 
 
 if __name__ == "__main__":

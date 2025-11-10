@@ -40,11 +40,11 @@ class AudioQualityChecker:
         quality_config_path = pipeline_config.CONFIG_DIR / "quality.json"
         self.quality_config = QualityConfig(quality_config_path)
         
-        # Setup paths
+        # Setup paths with improved structure
         self.audio_dir = pipeline_config.AUDIO_OUTPUT_DIR
-        self.reports_dir = pipeline_config.OUTPUT_DIR / "reports" / "audio"
-        self.quarantine_dir = pipeline_config.OUTPUT_DIR / "quarantine" / "audio"
-        self.manifest_path = pipeline_config.OUTPUT_DIR / "run_manifest.json"
+        self.reports_dir = pipeline_config.OUTPUT_DIR / "quality_gates" / "reports" / "audio"
+        self.quarantine_dir = pipeline_config.OUTPUT_DIR / "quality_gates" / "quarantine" / "audio"
+        self.manifest_path = pipeline_config.OUTPUT_DIR / "quality_gates" / "run_manifest.json"
         
         # Initialize manifest and reporter
         self.manifest = RunManifest(self.manifest_path)

@@ -13,7 +13,7 @@ from src.pipeline import config as pipeline_config
 
 def main():
     """Generate summary report."""
-    reports_dir = pipeline_config.OUTPUT_DIR / "reports"
+    reports_dir = pipeline_config.OUTPUT_DIR / "quality_gates" / "reports"
     summary_path = reports_dir / "summary.json"
     
     script_reports_dir = reports_dir / "scripts"

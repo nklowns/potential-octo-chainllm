@@ -115,9 +115,31 @@ class WordBoundsGate(QualityGate):
 class ForbiddenTermsGate(QualityGate):
     """Checks for forbidden terms in script content."""
     
-    def __init__(self, forbidden_terms: List[str], severity: Severity = Severity.ERROR):
+    def __init__(self, forbidden_terms_file: Path = None, forbidden_terms: List[str] = None, severity: Severity = Severity.ERROR):
         super().__init__("forbidden_terms", severity)
-        self.forbidden_terms = [term.lower() for term in forbidden_terms]
+        
+        # Load from file if provided, otherwise use list
+        if forbidden_terms_file and forbidden_terms_file.exists():
+            self.forbidden_terms = self._load_from_file(forbidden_terms_file)
+        elif forbidden_terms:
+            self.forbidden_terms = [term.lower() for term in forbidden_terms]
+        else:
+            self.forbidden_terms = []
+    
+    def _load_from_file(self, file_path: Path) -> List[str]:
+        """Load forbidden terms from a text file."""
+        terms = []
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    # Skip empty lines and comments
+                    if line and not line.startswith('#'):
+                        terms.append(line.lower())
+            logger.info(f"Loaded {len(terms)} forbidden terms from {file_path}")
+        except Exception as e:
+            logger.error(f"Error loading forbidden terms from {file_path}: {e}")
+        return terms
     
     def check(self, artifact: Dict[str, Any]) -> GateResult:
         """Check if script contains forbidden terms."""

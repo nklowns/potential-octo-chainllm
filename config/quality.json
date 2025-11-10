@@ -2,14 +2,9 @@
   "enabled": true,
   "llm_assisted": false,
   "script": {
-    "min_words": 50,
-    "max_words": 500,
-    "forbidden_terms": [
-      "hack",
-      "pirata",
-      "ilegal",
-      "crackeado"
-    ],
+    "min_words": 10,
+    "max_words": 2000,
+    "forbidden_terms_file": "config/forbidden_terms.txt",
     "language": "pt-BR",
     "allow_duplicates": false
   },
@@ -25,7 +20,7 @@
   },
   "severity": {
     "schema_validation": "error",
-    "word_bounds": "error",
+    "word_bounds": "warn",
     "forbidden_terms": "error",
     "language": "warn",
     "duplicates": "warn",

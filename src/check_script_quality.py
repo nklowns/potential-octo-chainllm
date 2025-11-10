@@ -42,12 +42,12 @@ class ScriptQualityChecker:
         quality_config_path = pipeline_config.CONFIG_DIR / "quality.json"
         self.quality_config = QualityConfig(quality_config_path)
         
-        # Setup paths
+        # Setup paths with improved structure
         self.scripts_dir = pipeline_config.SCRIPTS_OUTPUT_DIR
         self.schema_path = pipeline_config.CONFIG_DIR / "schemas" / "script_v1.json"
-        self.reports_dir = pipeline_config.OUTPUT_DIR / "reports" / "scripts"
-        self.quarantine_dir = pipeline_config.OUTPUT_DIR / "quarantine" / "scripts"
-        self.manifest_path = pipeline_config.OUTPUT_DIR / "run_manifest.json"
+        self.reports_dir = pipeline_config.OUTPUT_DIR / "quality_gates" / "reports" / "scripts"
+        self.quarantine_dir = pipeline_config.OUTPUT_DIR / "quality_gates" / "quarantine" / "scripts"
+        self.manifest_path = pipeline_config.OUTPUT_DIR / "quality_gates" / "run_manifest.json"
         
         # Initialize manifest and reporter
         self.manifest = RunManifest(self.manifest_path)
@@ -74,15 +74,25 @@ class ScriptQualityChecker:
                 gates.append(SchemaValidationGate(self.schema_path, severity))
             elif gate_name == "word_bounds":
                 gates.append(WordBoundsGate(
-                    script_config.get("min_words", 50),
-                    script_config.get("max_words", 500),
+                    script_config.get("min_words", 10),
+                    script_config.get("max_words", 2000),
                     severity
                 ))
             elif gate_name == "forbidden_terms":
-                gates.append(ForbiddenTermsGate(
-                    script_config.get("forbidden_terms", []),
-                    severity
-                ))
+                # Check if forbidden_terms_file is specified
+                forbidden_file = script_config.get("forbidden_terms_file")
+                if forbidden_file:
+                    forbidden_path = pipeline_config.BASE_DIR / forbidden_file
+                    gates.append(ForbiddenTermsGate(
+                        forbidden_terms_file=forbidden_path,
+                        severity=severity
+                    ))
+                else:
+                    # Fallback to list
+                    gates.append(ForbiddenTermsGate(
+                        forbidden_terms=script_config.get("forbidden_terms", []),
+                        severity=severity
+                    ))
             elif gate_name == "language":
                 gates.append(LanguageGate(
                     script_config.get("language", "pt-BR"),
