@@ -255,8 +255,9 @@ STRICT=0           # 1 = exit code != 0 se houver falhas (CI/CD)
 - **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Guia completo de implantação e uso
 - **[DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Guia de desenvolvimento e contribuição
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Arquitetura detalhada e design decisions
-- **[QUALITY_GATES_USAGE.md](docs/QUALITY_GATES_USAGE.md)** - ✨ Guia completo de Quality Gates
-- **[QUALITY_GATES_V2.md](docs/QUALITY_GATES_V2.md)** - Especificação técnica de Quality Gates
+- **[QUALITY_GATES_STATUS.md](docs/QUALITY_GATES_STATUS.md)** - ✨ **Status atual da implementação** (READ FIRST)
+- **[QUALITY_GATES_USAGE.md](docs/QUALITY_GATES_USAGE.md)** - Guia completo de uso
+- **[QUALITY_GATES_V2.md](docs/QUALITY_GATES_V2.md)** - Especificação técnica e roadmap
 
 ### Documentação Técnica
 
