@@ -16,7 +16,9 @@ from src.quality.config import QualityConfig
 from src.quality.runner import QualityGateRunner
 from src.quality.gates.audio_gates import (
     AudioFormatGate,
-    DurationConsistencyGate
+    DurationConsistencyGate,
+    SilenceDetectionGate,
+    LoudnessCheckGate
 )
 from src.quality.manifest import RunManifest, AudioEntry
 from src.quality.reporters import QualityReporter
@@ -74,6 +76,19 @@ class AudioQualityChecker:
                 ))
             elif gate_name == "duration_consistency":
                 gates.append(DurationConsistencyGate(severity))
+            elif gate_name == "silence":
+                gates.append(SilenceDetectionGate(
+                    max_leading_silence_ms=audio_config.get("max_leading_silence_ms", 1000),
+                    max_trailing_silence_ms=audio_config.get("max_trailing_silence_ms", 1000),
+                    max_silence_proportion=audio_config.get("max_silence_proportion", 0.3),
+                    severity=severity
+                ))
+            elif gate_name == "loudness":
+                gates.append(LoudnessCheckGate(
+                    target_loudness_dbfs_min=audio_config.get("target_loudness_dbfs_min", -30.0),
+                    target_loudness_dbfs_max=audio_config.get("target_loudness_dbfs_max", -10.0),
+                    severity=severity
+                ))
         
         logger.info(f"Initialized {len(gates)} quality gates")
         return gates

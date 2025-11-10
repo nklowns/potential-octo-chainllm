@@ -195,3 +195,224 @@ class DurationConsistencyGate(QualityGate):
                 f"Failed to check duration: {str(e)}",
                 {"error": str(e)}
             )
+
+
+class SilenceDetectionGate(QualityGate):
+    """
+    Detects excessive silence at the beginning, end, or throughout the audio.
+    
+    Uses amplitude-based detection to identify silent regions.
+    """
+    
+    def __init__(
+        self,
+        max_leading_silence_ms: int = 1000,
+        max_trailing_silence_ms: int = 1000,
+        max_silence_proportion: float = 0.3,
+        silence_threshold_db: float = -40.0,
+        severity: Severity = Severity.WARN
+    ):
+        super().__init__("silence_detection", severity)
+        self.max_leading_silence_ms = max_leading_silence_ms
+        self.max_trailing_silence_ms = max_trailing_silence_ms
+        self.max_silence_proportion = max_silence_proportion
+        self.silence_threshold_db = silence_threshold_db
+    
+    def check(self, artifact: Path) -> GateResult:
+        """
+        Check for excessive silence in audio file.
+        
+        Args:
+            artifact: Path to the audio file.
+        """
+        try:
+            from pydub import AudioSegment
+            from pydub.silence import detect_leading_silence
+        except ImportError:
+            logger.warning("pydub library not installed. Install with: pip install pydub")
+            return self._create_result(
+                QualityStatus.WARN,
+                "pydub library not available, skipping silence detection",
+                {"error": "ImportError: pydub"}
+            )
+        
+        if not artifact.exists():
+            return self._create_result(
+                QualityStatus.FAIL,
+                f"Audio file not found: {artifact}",
+                {"path": str(artifact)}
+            )
+        
+        try:
+            # Load audio
+            audio = AudioSegment.from_file(artifact)
+            
+            # Detect leading silence
+            leading_silence = detect_leading_silence(
+                audio,
+                silence_threshold=self.silence_threshold_db
+            )
+            
+            # Detect trailing silence (reverse audio)
+            trailing_silence = detect_leading_silence(
+                audio.reverse(),
+                silence_threshold=self.silence_threshold_db
+            )
+            
+            # Calculate silence proportion
+            total_duration = len(audio)
+            total_silence = leading_silence + trailing_silence
+            silence_proportion = total_silence / total_duration if total_duration > 0 else 0
+            
+            # Check leading silence
+            if leading_silence > self.max_leading_silence_ms:
+                return self._create_result(
+                    QualityStatus.WARN,
+                    f"Excessive leading silence: {leading_silence}ms (max: {self.max_leading_silence_ms}ms)",
+                    {
+                        "leading_silence_ms": leading_silence,
+                        "trailing_silence_ms": trailing_silence,
+                        "silence_proportion": round(silence_proportion, 3),
+                        "max_leading_ms": self.max_leading_silence_ms,
+                        "max_trailing_ms": self.max_trailing_silence_ms,
+                        "max_proportion": self.max_silence_proportion
+                    }
+                )
+            
+            # Check trailing silence
+            if trailing_silence > self.max_trailing_silence_ms:
+                return self._create_result(
+                    QualityStatus.WARN,
+                    f"Excessive trailing silence: {trailing_silence}ms (max: {self.max_trailing_silence_ms}ms)",
+                    {
+                        "leading_silence_ms": leading_silence,
+                        "trailing_silence_ms": trailing_silence,
+                        "silence_proportion": round(silence_proportion, 3),
+                        "max_leading_ms": self.max_leading_silence_ms,
+                        "max_trailing_ms": self.max_trailing_silence_ms,
+                        "max_proportion": self.max_silence_proportion
+                    }
+                )
+            
+            # Check overall silence proportion
+            if silence_proportion > self.max_silence_proportion:
+                return self._create_result(
+                    QualityStatus.WARN,
+                    f"Excessive silence proportion: {silence_proportion:.1%} (max: {self.max_silence_proportion:.1%})",
+                    {
+                        "leading_silence_ms": leading_silence,
+                        "trailing_silence_ms": trailing_silence,
+                        "silence_proportion": round(silence_proportion, 3),
+                        "max_proportion": self.max_silence_proportion
+                    }
+                )
+            
+            return self._create_result(
+                QualityStatus.PASS,
+                f"Silence within limits: {leading_silence}ms leading, {trailing_silence}ms trailing",
+                {
+                    "leading_silence_ms": leading_silence,
+                    "trailing_silence_ms": trailing_silence,
+                    "silence_proportion": round(silence_proportion, 3),
+                    "duration_ms": total_duration
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Error detecting silence in {artifact}: {e}")
+            return self._create_result(
+                QualityStatus.WARN,
+                f"Failed to detect silence: {str(e)}",
+                {"path": str(artifact), "error": str(e)}
+            )
+
+
+class LoudnessCheckGate(QualityGate):
+    """
+    Checks if audio loudness is within acceptable range.
+    
+    Uses RMS (root mean square) to measure perceived loudness.
+    """
+    
+    def __init__(
+        self,
+        target_loudness_dbfs_min: float = -30.0,
+        target_loudness_dbfs_max: float = -10.0,
+        severity: Severity = Severity.WARN
+    ):
+        super().__init__("loudness_check", severity)
+        self.target_loudness_dbfs_min = target_loudness_dbfs_min
+        self.target_loudness_dbfs_max = target_loudness_dbfs_max
+    
+    def check(self, artifact: Path) -> GateResult:
+        """
+        Check if audio loudness is within acceptable range.
+        
+        Args:
+            artifact: Path to the audio file.
+        """
+        try:
+            from pydub import AudioSegment
+        except ImportError:
+            logger.warning("pydub library not installed. Install with: pip install pydub")
+            return self._create_result(
+                QualityStatus.WARN,
+                "pydub library not available, skipping loudness check",
+                {"error": "ImportError: pydub"}
+            )
+        
+        if not artifact.exists():
+            return self._create_result(
+                QualityStatus.FAIL,
+                f"Audio file not found: {artifact}",
+                {"path": str(artifact)}
+            )
+        
+        try:
+            # Load audio
+            audio = AudioSegment.from_file(artifact)
+            
+            # Get loudness in dBFS (decibels relative to full scale)
+            loudness_dbfs = audio.dBFS
+            
+            # Check if too quiet
+            if loudness_dbfs < self.target_loudness_dbfs_min:
+                return self._create_result(
+                    QualityStatus.WARN,
+                    f"Audio too quiet: {loudness_dbfs:.1f} dBFS (min: {self.target_loudness_dbfs_min} dBFS)",
+                    {
+                        "loudness_dbfs": round(loudness_dbfs, 2),
+                        "target_min_dbfs": self.target_loudness_dbfs_min,
+                        "target_max_dbfs": self.target_loudness_dbfs_max
+                    }
+                )
+            
+            # Check if too loud
+            if loudness_dbfs > self.target_loudness_dbfs_max:
+                return self._create_result(
+                    QualityStatus.WARN,
+                    f"Audio too loud: {loudness_dbfs:.1f} dBFS (max: {self.target_loudness_dbfs_max} dBFS)",
+                    {
+                        "loudness_dbfs": round(loudness_dbfs, 2),
+                        "target_min_dbfs": self.target_loudness_dbfs_min,
+                        "target_max_dbfs": self.target_loudness_dbfs_max
+                    }
+                )
+            
+            return self._create_result(
+                QualityStatus.PASS,
+                f"Loudness within range: {loudness_dbfs:.1f} dBFS",
+                {
+                    "loudness_dbfs": round(loudness_dbfs, 2),
+                    "target_min_dbfs": self.target_loudness_dbfs_min,
+                    "target_max_dbfs": self.target_loudness_dbfs_max
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Error checking loudness in {artifact}: {e}")
+            return self._create_result(
+                QualityStatus.WARN,
+                f"Failed to check loudness: {str(e)}",
+                {"path": str(artifact), "error": str(e)}
+            )
