@@ -232,17 +232,22 @@ OUTPUT_AUDIO=/home/appuser/app/output/audio
 
 ## 📚 Documentação Completa
 
-### Guias
+### Guias Essenciais
 
-- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Guia completo de implantação
-- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Arquitetura detalhada
-- **[MIGRATION_PIPER.md](docs/MIGRATION_PIPER.md)** - Migração Piper TTS
-- **[TECH_ANALYSIS.md](docs/TECH_ANALYSIS.md)** - Análise de tecnologias
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Guia completo de implantação e uso
+- **[DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Guia de desenvolvimento e contribuição
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Arquitetura detalhada e design decisions
 
-### Desenvolvimento
+### Documentação Técnica
 
-- **[DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Setup para desenvolvedores
-- **[GAPS_ANALYSIS.md](docs/GAPS_ANALYSIS.md)** - Gaps e melhorias
+- **[MIGRATION_PIPER.md](docs/MIGRATION_PIPER.md)** - Migração Piper TTS para v1.3.1
+- **[TECH_ANALYSIS.md](docs/TECH_ANALYSIS.md)** - Análise técnica e stack
+- **[BEST_PRACTICES.md](docs/BEST_PRACTICES.md)** - Boas práticas de desenvolvimento
+
+### Status e Planejamento
+
+- **[PROJECT_STATUS.md](docs/PROJECT_STATUS.md)** - Status atual do projeto
+- **[GAPS_ANALYSIS.md](docs/GAPS_ANALYSIS.md)** - Análise de gaps e melhorias
 - **[RESTRUCTURE_PLAN.md](docs/RESTRUCTURE_PLAN.md)** - Plano de reestruturação
 
 ## 🔧 Troubleshooting
