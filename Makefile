@@ -213,16 +213,16 @@ clean-all-full: clean-all ## CLEAN: Limpa tudo incluindo volumes Ollama
 
 clean-outputs: ## CLEAN: Limpa outputs gerados
 	@echo "🗑️  Limpando outputs..."
-	@rm -f output/scripts/*.txt
-	@rm -f output/audio/*.wav
-	@rm -f output/images/*.png
+	@rm -f data/output/scripts/*.txt
+	@rm -f data/output/audio/*.wav
+	@rm -f data/output/images/*.png
 	@echo "✅ Outputs limpos"
 
 backup: ## CLEAN: Backup de outputs e config
 	@echo "💾 Criando backup..."
 	@mkdir -p backups
-	@tar -czf backups/outputs_$$(date +%Y%m%d_%H%M%S).tar.gz output/
-	@tar -czf backups/config_$$(date +%Y%m%d_%H%M%S).tar.gz config/ input/
+	@tar -czf backups/outputs_$$(date +%Y%m%d_%H%M%S).tar.gz data/output/
+	@tar -czf backups/config_$$(date +%Y%m%d_%H%M%S).tar.gz config/ data/input/
 	@echo "✅ Backup criado em backups/"
 
 # ============================================

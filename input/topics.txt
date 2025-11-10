@@ -1,5 +1,0 @@
-Tecnologia Docker para desenvolvedores
-Inteligência Artificial no dia a dia
-Python para automação de tarefas
-Machine Learning para iniciantes
-Cloud Computing vantagens
