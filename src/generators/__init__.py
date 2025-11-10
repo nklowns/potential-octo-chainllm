@@ -1,6 +1,12 @@
-"""Content generators module."""
+"""Content generators module.
 
-from src.generators.script_generator import ScriptGenerator
-from src.generators.audio_generator import AudioGenerator
+Note: This package contains executable modules that should be run with:
+    python -m src.generators.script_generator
+    python -m src.generators.audio_generator
+    python -m src.generators.image_generator
 
-__all__ = ["ScriptGenerator", "AudioGenerator"]
+Classes are not imported here to avoid RuntimeWarning when running as modules.
+"""
+
+__all__ = []
+
