@@ -2,9 +2,6 @@
 requests>=2.31.0
 ollama>=0.4.0
 urllib3>=2.0.6          # Security: Fixed CVE for Cookie header stripping on cross-origin redirects
-python-dotenv>=1.0.0
 
 # Utility libraries
-pydantic>=2.0.0         # For data validation
 tenacity>=8.0.0         # For robust retry mechanisms
-rich>=13.0.0            # For better terminal output
