@@ -69,30 +69,30 @@ check-network: ## SETUP: Verifica rede Traefik
 
 build: ## SETUP: Build da imagem pipeline
 	@echo "🔨 Construindo imagem audio-pipeline-app..."
-	@docker-compose -f $(COMPOSE_MANAGER) build
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) build
 
 # ============================================
 # PIPER TTS
 # ============================================
 tts-build: ## TTS: Build da imagem Piper TTS
 	@echo "🔨 Building Piper TTS v1.3.1 (GPL)..."
-	@docker-compose -f $(COMPOSE_TTS) build piper-tts
+	@docker compose --env-file .env -f $(COMPOSE_TTS) build piper-tts
 
 tts-up: ## TTS: Inicia Piper TTS
 	@echo "🚀 Iniciando Piper TTS..."
-	@docker-compose -f $(COMPOSE_TTS) up -d piper-tts
+	@docker compose --env-file .env -f $(COMPOSE_TTS) up -d piper-tts
 	@echo "✅ Piper TTS iniciado!"
 
 tts-down: ## TTS: Para Piper TTS
 	@echo "🛑 Parando Piper TTS..."
-	@docker-compose -f $(COMPOSE_TTS) down
+	@docker compose --env-file .env -f $(COMPOSE_TTS) down
 
 tts-logs: ## TTS: Logs do Piper TTS
-	@docker-compose -f $(COMPOSE_TTS) logs -f piper-tts
+	@docker compose --env-file .env -f $(COMPOSE_TTS) logs -f piper-tts
 
 tts-status: ## TTS: Status do Piper TTS
 	@echo "📊 Status do Piper TTS:"
-	@docker-compose -f $(COMPOSE_TTS) ps piper-tts
+	@docker compose --env-file .env -f $(COMPOSE_TTS) ps piper-tts
 	@docker inspect --format='Health: {{.State.Health.Status}}' piper-tts 2>/dev/null || echo "Container não encontrado"
 
 tts-test: ## TTS: Testa API do Piper TTS
@@ -117,14 +117,14 @@ tts-shell: ## TTS: Shell no container Piper
 # ============================================
 ollama-up: ## OLLAMA: Inicia Ollama local
 	@echo "🤖 Iniciando Ollama local..."
-	@docker-compose -f $(COMPOSE_OLLAMA) up -d
+	@docker compose --env-file .env -f $(COMPOSE_OLLAMA) up -d
 	@echo "✅ Ollama iniciado!"
 
 ollama-down: ## OLLAMA: Para Ollama local
-	@docker-compose -f $(COMPOSE_OLLAMA) down
+	@docker compose --env-file .env -f $(COMPOSE_OLLAMA) down
 
 ollama-logs: ## OLLAMA: Logs do Ollama
-	@docker-compose -f $(COMPOSE_OLLAMA) logs -f ollama
+	@docker compose --env-file .env -f $(COMPOSE_OLLAMA) logs -f ollama
 
 ollama-test: ## OLLAMA: Testa Ollama
 	@echo "🧪 Testando Ollama..."
@@ -143,11 +143,11 @@ pipeline-full: build ollama-up tts-up manager ## PIPELINE: Pipeline com Ollama l
 
 manager: ## PIPELINE: Executa geração de scripts e áudio
 	@echo "🎯 Executando pipeline..."
-	@INPUT_FILE=$(INPUT_FILE) docker-compose -f $(COMPOSE_MANAGER) up manager
+	@INPUT_FILE=$(INPUT_FILE) docker compose --env-file .env -f $(COMPOSE_MANAGER) up manager
 
 image-generator: ## PIPELINE: Executa geração de imagens
 	@echo "🎨 Executando geração de imagens..."
-	@docker-compose -f $(COMPOSE_MANAGER) run --rm image-generator
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm image-generator
 
 # ============================================
 # MONITORAMENTO
@@ -168,17 +168,17 @@ monitor: ## MONITOR: Monitora outputs gerados
 	@docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(piper-tts|ollama|pipeline-manager)" || echo "  Nenhum container ativo"
 
 logs: ## MONITOR: Logs do pipeline manager
-	@docker-compose -f $(COMPOSE_MANAGER) logs -f manager
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) logs -f manager
 
 status: ## MONITOR: Status de todos os serviços
 	@echo "📊 Status dos serviços:"
 	@echo ""
-	@docker-compose -f $(COMPOSE_TTS) ps 2>/dev/null
-	@docker-compose -f $(COMPOSE_MANAGER) ps 2>/dev/null
+	@docker compose --env-file .env -f $(COMPOSE_TTS) ps 2>/dev/null
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) ps 2>/dev/null
 
 status-full: ## MONITOR: Status completo com Ollama
 	@$(MAKE) status
-	@docker-compose -f $(COMPOSE_OLLAMA) ps 2>/dev/null
+	@docker compose --env-file .env -f $(COMPOSE_OLLAMA) ps 2>/dev/null
 
 test-services: ## MONITOR: Testa todos os serviços
 	@echo "🧪 Testando serviços..."
@@ -194,20 +194,20 @@ test-services-full: ## MONITOR: Testa todos os serviços com Ollama
 # ============================================
 clean: ## CLEAN: Para todos os containers
 	@echo "🧹 Limpando containers..."
-	@docker-compose -f $(COMPOSE_TTS) down
-	@docker-compose -f $(COMPOSE_OLLAMA) down
-	@docker-compose -f $(COMPOSE_MANAGER) down
+	@docker compose --env-file .env -f $(COMPOSE_TTS) down
+	@docker compose --env-file .env -f $(COMPOSE_OLLAMA) down
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) down
 	@echo "✅ Containers parados"
 
 clean-all: clean ## CLEAN: Para containers e remove volumes
 	@echo "🗑️  Removendo volumes..."
-	@docker-compose -f $(COMPOSE_TTS) down -v
+	@docker compose --env-file .env -f $(COMPOSE_TTS) down -v
 	@docker volume rm piper-voices 2>/dev/null || true
 	@echo "✅ Volumes removidos"
 
 clean-all-full: clean-all ## CLEAN: Limpa tudo incluindo volumes Ollama
 	@echo "🗑️  Removendo volumes Ollama..."
-	@docker-compose -f $(COMPOSE_OLLAMA) down -v
+	@docker compose --env-file .env -f $(COMPOSE_OLLAMA) down -v
 	@docker volume rm ollama_data 2>/dev/null || true
 	@echo "✅ Volumes removidos"
 
