@@ -72,14 +72,17 @@ make generate-summary
    - Verifica campos obrigatórios: topic, content, metadata
    - Valida formato de timestamp (ISO 8601)
 
-2. **Word Bounds** (error)
-   - Mínimo: 50 palavras
-   - Máximo: 500 palavras
+2. **Word Bounds** (warn) - ⚠️ **Atualizado**
+   - Mínimo: 10 palavras (validação apenas para textos muito curtos/vazios)
+   - Máximo: 2000 palavras (permite conteúdo completo do Ollama)
+   - **Não bloqueia** - apenas avisa se fora dos limites
    - Configurável em `config/quality.json`
 
-3. **Forbidden Terms** (error)
-   - Detecta termos proibidos: hack, pirata, ilegal, crackeado
-   - Lista configurável em `config/quality.json`
+3. **Forbidden Terms** (error) - ⚠️ **Atualizado**
+   - Carregado de arquivo externo: `config/forbidden_terms.txt`
+   - Um termo por linha, suporta comentários com `#`
+   - Termos atuais: hack, pirata, ilegal, crackeado
+   - Fácil manutenção sem editar código
 
 4. **Language Check** (warn)
    - Verifica se o script está em pt-BR
@@ -122,28 +125,48 @@ make generate-summary
 
 ```json
 {
-  "enabled": true,              // Ativa/desativa quality gates
-  "llm_assisted": false,        // Gates assistidos por LLM (futuro)
+  "enabled": true,                        // Ativa/desativa quality gates
+  "llm_assisted": false,                  // Gates assistidos por LLM (futuro)
   "script": {
-    "min_words": 50,            // Mínimo de palavras
-    "max_words": 500,           // Máximo de palavras
-    "forbidden_terms": [...],   // Lista de termos proibidos
-    "language": "pt-BR"         // Idioma esperado
+    "min_words": 10,                      // Mínimo de palavras (relaxado)
+    "max_words": 2000,                    // Máximo de palavras (relaxado)
+    "forbidden_terms_file": "config/forbidden_terms.txt",  // Arquivo externo
+    "language": "pt-BR"                   // Idioma esperado
   },
   "audio": {
-    "min_duration_sec": 5,      // Duração mínima em segundos
-    "max_duration_sec": 300,    // Duração máxima em segundos
+    "min_duration_sec": 5,                // Duração mínima em segundos
+    "max_duration_sec": 300,              // Duração máxima em segundos
     "min_sample_rate": 16000    // Sample rate mínimo
   },
   "severity": {
     "schema_validation": "error",  // error = bloqueia, warn = avisa
-    "word_bounds": "error",
+    "word_bounds": "warn",         // Mudado para warn (não bloqueia)
     "forbidden_terms": "error",
     "language": "warn",
     ...
   }
 }
 ```
+
+### Arquivo: `config/forbidden_terms.txt` ⚠️ **Novo**
+
+Arquivo de texto simples, um termo por linha:
+
+```
+# Forbidden Terms Configuration
+# Lines starting with # are comments
+
+hack
+pirata
+ilegal
+crackeado
+```
+
+**Vantagens:**
+- Fácil manutenção - adicionar/remover termos sem editar código
+- Suporta comentários para documentação
+- Pode ser versionado separadamente
+- Compartilhável entre ambientes
 
 ## Variáveis de Ambiente
 
@@ -168,28 +191,35 @@ if [ $? -ne 0 ]; then
 fi
 ```
 
-## Estrutura de Diretórios
+## Estrutura de Diretórios ⚠️ **Atualizado**
 
 ```
 data/output/
-├── scripts/                    # Scripts gerados
-│   ├── script_001_topic.txt   # Formato texto
-│   └── script_001_topic.json  # Formato JSON (para gates)
-├── audio/                      # Áudios gerados
+├── scripts/                          # Scripts gerados
+│   ├── script_001_topic.txt         # Formato texto
+│   └── script_001_topic.json        # Formato JSON (para gates)
+├── audio/                            # Áudios gerados
 │   └── script_001_topic.wav
-├── reports/                    # Relatórios de qualidade
-│   ├── scripts/
-│   │   └── script_001_topic.json
-│   ├── audio/
-│   │   └── script_001_topic.json
-│   └── summary.json           # Relatório consolidado
-├── quarantine/                 # Artefatos reprovados
-│   ├── scripts/
-│   │   ├── script_002_bad.txt
-│   │   └── script_002_bad_reason.txt
-│   └── audio/
-└── run_manifest.json          # Manifesto de execução
+└── quality_gates/                    # ⭐ Nova estrutura organizada
+    ├── reports/                      # Relatórios de qualidade
+    │   ├── scripts/
+    │   │   └── script_001_topic.json
+    │   ├── audio/
+    │   │   └── script_001_topic.json
+    │   └── summary.json              # Relatório consolidado
+    ├── quarantine/                   # Artefatos reprovados
+    │   ├── scripts/
+    │   │   ├── script_002_bad.txt
+    │   │   └── script_002_bad_reason.txt
+    │   └── audio/
+    └── run_manifest.json             # Manifesto de execução
 ```
+
+**Melhorias na estrutura:**
+- Tudo relacionado a quality gates agora em `quality_gates/` subdirectory
+- Separação clara entre conteúdo gerado e validação
+- Mais fácil de entender e navegar
+- Melhor para backup seletivo
 
 ## Relatórios
 
@@ -278,15 +308,16 @@ O sistema implementa **lazy evaluation** (short-circuit):
 
 - ✅ Gates são executados em ordem definida
 - ✅ Ao encontrar falha crítica (severity: error), para a execução
-- ✅ Gates restantes são marcados como "skipped"
+- ✅ Gates com severity: warn NÃO param a execução
+- ✅ Gates restantes são marcados como "skipped" após falha crítica
 - ✅ Economiza tempo e recursos
 
-Exemplo:
+Exemplo com word_bounds como WARN:
 ```
 Gate 1 (schema) → PASS
-Gate 2 (word_bounds) → PASS
-Gate 3 (forbidden_terms) → FAIL (critical)
-Gate 4 (language) → SKIPPED (devido à falha anterior)
+Gate 2 (word_bounds) → FAIL (warn) ⚠️ continua executando
+Gate 3 (forbidden_terms) → FAIL (error) ❌ para aqui
+Gate 4 (language) → SKIPPED (devido à falha crítica anterior)
 ```
 
 ## Workflow Típico
@@ -328,34 +359,38 @@ echo $?  # 0 = sucesso, 1 = falha
 
 ## Personalização
 
-### Adicionar Termos Proibidos
+### Adicionar Termos Proibidos ⚠️ **Atualizado**
+
+Edite `config/forbidden_terms.txt`:
+
+```
+# Forbidden Terms Configuration
+# Add one term per line
+
+hack
+pirata
+ilegal
+crackeado
+seu_termo_aqui
+outro_termo
+```
+
+**Muito mais simples!** Não precisa editar JSON ou código.
+
+### Ajustar Limites de Palavras
 
 Edite `config/quality.json`:
 
 ```json
 {
   "script": {
-    "forbidden_terms": [
-      "hack",
-      "pirata",
-      "ilegal",
-      "crackeado",
-      "seu_termo_aqui"
-    ]
+    "min_words": 5,      // Reduz ainda mais (apenas para detectar vazios)
+    "max_words": 5000    // Aumenta para permitir scripts longos
   }
 }
 ```
 
-### Ajustar Limites de Palavras
-
-```json
-{
-  "script": {
-    "min_words": 30,    // Reduz mínimo
-    "max_words": 1000   // Aumenta máximo
-  }
-}
-```
+**Nota:** Com severity "warn", mesmo scripts fora dos limites não são bloqueados.
 
 ### Mudar Severidade
 
