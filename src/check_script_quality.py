@@ -96,9 +96,18 @@ class ScriptQualityChecker:
         """
         Load a script file and convert to the expected JSON structure.
         
-        For now, scripts are stored as .txt files. We need to create a JSON
-        structure that matches the schema.
+        Prefers .json files if available, otherwise loads .txt and constructs JSON.
         """
+        # Check if JSON version exists
+        json_path = script_path.with_suffix('.json')
+        if json_path.exists():
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.warning(f"Failed to load JSON file {json_path}, falling back to .txt: {e}")
+        
+        # Fallback to .txt file
         try:
             with open(script_path, 'r', encoding='utf-8') as f:
                 content = f.read()

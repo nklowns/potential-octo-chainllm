@@ -196,6 +196,9 @@ quality-gates: quality-scripts quality-audio ## QUALITY: Executa todos os qualit
 list-failures: ## QUALITY: Lista artefatos reprovados
 	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm manager python src/list_failures.py
 
+generate-summary: ## QUALITY: Gera relatório consolidado
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm manager python src/generate_summary.py
+
 # ============================================
 # MONITORAMENTO
 # ============================================

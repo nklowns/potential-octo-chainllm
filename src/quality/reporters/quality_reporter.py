@@ -205,14 +205,16 @@ class SummaryReporter:
                     if gate_name not in gate_stats:
                         gate_stats[gate_name] = {
                             "total": 0,
-                            "passed": 0,
-                            "failed": 0,
-                            "warned": 0,
+                            "pass": 0,
+                            "fail": 0,
+                            "warn": 0,
                             "skipped": 0
                         }
                     
                     gate_stats[gate_name]["total"] += 1
-                    gate_stats[gate_name][gate_status] += 1
+                    # Use the status as key (pass, fail, warn, skipped)
+                    if gate_status in gate_stats[gate_name]:
+                        gate_stats[gate_name][gate_status] += 1
                     
             except Exception as e:
                 logger.error(f"Error reading report {report_path}: {e}")
