@@ -97,7 +97,15 @@ tts-status: ## TTS: Status do Piper TTS
 
 tts-test: ## TTS: Testa API do Piper TTS
 	@echo "🧪 Testando Piper TTS..."
-	@curl -sk https://$(TTS_SERVICE_NAME).$(DOMAIN_DUCKDNS)/voices | jq -r 'keys[0]' || echo "❌ Falha"
+	@echo "Testando endpoint /voices:"
+	@curl -s https://$(TTS_SERVICE_NAME).$(DOMAIN_DUCKDNS)/voices | jq -r 'keys' || echo "❌ Falha ao listar vozes"
+	@echo ""
+	@echo "Testando síntese de áudio:"
+	@mkdir -p data/output/audio
+	@curl -X POST https://$(TTS_SERVICE_NAME).$(DOMAIN_DUCKDNS) \
+		-H 'Content-Type: application/json' \
+		-d '{"text": "Teste de migração bem-sucedido! Piper TTS versão 1.3.0 GPL funcionando via Traefik."}' \
+		-o data/output/audio/teste_migracao.wav && echo "✅ Áudio salvo em data/output/audio/teste_migracao.wav" || echo "❌ Falha na síntese"
 	@echo "✅ Teste concluído"
 
 tts-migrate: ## TTS: Migração completa do Piper TTS

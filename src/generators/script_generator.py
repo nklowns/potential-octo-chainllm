@@ -31,6 +31,8 @@ class ScriptGenerator:
         """
         Initializes the ScriptGenerator with configuration from the pipeline config.
         """
+        # Garante diretórios necessários
+        config.ensure_dirs()
         self.client = Client(host=config.OLLAMA_BASE_URL, timeout=120)
         self.model = config.DEFAULT_SCRIPT_MODEL
         self.prompt_template = self._load_prompt_template()
@@ -57,14 +59,51 @@ class ScriptGenerator:
             response = self.client.list()
             logger.info("✅ Successfully connected to Ollama.")
 
-            available_models = [model['name'] for model in response.get('models', [])]
+            # Compatível com ollama-python: response.models pode ser lista de objetos com atributo .model
+            available_models: List[str] = []
+            try:
+                if hasattr(response, 'models'):
+                    for m in getattr(response, 'models', []):
+                        if hasattr(m, 'model') and isinstance(m.model, str):
+                            available_models.append(m.model)
+                        elif isinstance(m, dict):
+                            name = m.get('model') or m.get('name') or m.get('tag')
+                            if name:
+                                available_models.append(name)
+                elif isinstance(response, dict):
+                    for m in response.get('models', []):
+                        if isinstance(m, dict):
+                            name = m.get('model') or m.get('name') or m.get('tag')
+                            if name:
+                                available_models.append(name)
+                        elif isinstance(m, str):
+                            available_models.append(m)
+                elif isinstance(response, list):
+                    for m in response:
+                        if isinstance(m, str):
+                            available_models.append(m)
+                        elif isinstance(m, dict):
+                            name = m.get('model') or m.get('name') or m.get('tag')
+                            if name:
+                                available_models.append(name)
+            except Exception as parse_err:
+                logger.warning(f"Could not parse model list: {parse_err}")
+
             if self.model not in available_models:
-                logger.warning(f"Model '{self.model}' not found. Attempting to pull it...")
+                # Tenta show() antes de fazer pull
                 try:
-                    self.client.pull(self.model)
-                    logger.info(f"✅ Model '{self.model}' pulled successfully.")
-                except ResponseError as e:
-                    raise ModelNotFoundError(f"Failed to pull model '{self.model}': {e.error}")
+                    _info = self.client.show(self.model)
+                    logger.info(f"ℹ️ Model '{self.model}' detected via show(); skipping pull.")
+                except Exception:
+                    logger.warning(f"Model '{self.model}' not listed; pulling...")
+                    try:
+                        for progress in self.client.pull(self.model, stream=True):
+                            status = getattr(progress, 'status', None) or progress.get('status') if isinstance(progress, dict) else None
+                            if status:
+                                logger.info(f"Pull progress: {status}")
+                        logger.info(f"✅ Model '{self.model}' pulled successfully.")
+                    except ResponseError as e:
+                        raise ModelNotFoundError(f"Failed to pull model '{self.model}': {e.error}")
             else:
                 logger.info(f"✅ Model '{self.model}' is available.")
 
@@ -107,13 +146,29 @@ class ScriptGenerator:
         prompt = self.prompt_template.format(topic=topic)
         logger.info(f"Generating script for topic: '{topic}'...")
 
+        # Aplica rate limiting simples se configurado
+        if config.OLLAMA_RATE_LIMIT > 0:
+            # tempo mínimo entre requisições = 60 / RATE_LIMIT
+            min_interval = 60.0 / config.OLLAMA_RATE_LIMIT
+            # Usa atributo interno para controlar última chamada
+            now = time.time()
+            last = getattr(self, '_last_call_ts', None)
+            if last is not None:
+                delta = now - last
+                if delta < min_interval:
+                    sleep_time = min_interval - delta
+                    logger.info(f"⏳ Rate limit active. Sleeping {sleep_time:.2f}s before generation...")
+                    time.sleep(sleep_time)
+            self._last_call_ts = time.time()
+
         response = self.client.generate(
             model=self.model,
             prompt=prompt,
             options={
-                'temperature': 0.7,
-                'top_k': 40,
-                'top_p': 0.9,
+                'temperature': config.OLLAMA_TEMPERATURE,
+                'top_k': config.OLLAMA_TOP_K,
+                'top_p': config.OLLAMA_TOP_P,
+                'num_predict': config.OLLAMA_NUM_PREDICT,
             }
         )
         script_text = response.get('response', '').strip()

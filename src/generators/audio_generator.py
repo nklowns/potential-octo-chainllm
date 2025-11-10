@@ -73,9 +73,9 @@ class AudioGenerator:
             script_name = script_path.stem
             audio_path = config.AUDIO_OUTPUT_DIR / f"{script_name}.wav"
 
+            # Sempre regerar áudio, sobrescrevendo arquivo existente
             if audio_path.exists():
-                logger.info(f"Audio for '{script_name}' already exists. Skipping.")
-                continue
+                logger.info(f"Audio for '{script_name}' exists. Regenerating and overwriting as requested.")
 
             try:
                 with open(script_path, 'r', encoding='utf-8') as f:
@@ -89,7 +89,13 @@ class AudioGenerator:
                 logger.info(f"Generating audio for '{script_name}' with voice '{voice}'...")
 
                 start_time = time.time()
-                audio_content = self.tts_client.synthesize(text, voice)
+                audio_content = self.tts_client.synthesize(
+                    text,
+                    voice,
+                    length_scale=config.TTS_LENGTH_SCALE,
+                    noise_scale=config.TTS_NOISE_SCALE,
+                    noise_w_scale=config.TTS_NOISE_W_SCALE,
+                )
                 elapsed_time = time.time() - start_time
 
                 if audio_content:

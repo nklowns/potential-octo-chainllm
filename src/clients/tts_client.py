@@ -54,7 +54,7 @@ class TTSClient:
         except requests.exceptions.RequestException as e:
             raise TTSClientError(f"Failed to connect to TTS server at {self.base_url}. Error: {e}")
 
-    def synthesize(self, text: str, voice: str, length_scale: float = 1.0) -> Optional[bytes]:
+    def synthesize(self, text: str, voice: str, length_scale: float = 1.0, noise_scale: float = 0.667, noise_w_scale: float = 0.8) -> Optional[bytes]:
         """
         Synthesizes audio from text using the TTS server.
 
@@ -70,7 +70,8 @@ class TTSClient:
             "text": text,
             "voice": voice,
             "length_scale": length_scale,
-            # Add other parameters if needed, like noise_scale, etc.
+            "noise_scale": noise_scale,
+            "noise_w_scale": noise_w_scale,
         }
         try:
             response = self.session.post(self.base_url, json=payload, timeout=180)
