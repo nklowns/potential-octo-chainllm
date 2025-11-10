@@ -4,5 +4,6 @@ __all__ = [
     'SchemaValidationGate',
     'WordBoundsGate',
     'ForbiddenTermsGate',
-    'LanguageGate'
+    'LanguageGate',
+    'ScriptCompletenessGate'
 ]

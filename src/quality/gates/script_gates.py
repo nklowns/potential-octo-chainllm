@@ -225,3 +225,88 @@ class LanguageGate(QualityGate):
                 "total_words": len(words)
             }
         )
+
+
+class ScriptCompletenessGate(QualityGate):
+    """
+    LLM-assisted gate to check if scripts are complete.
+    
+    Uses heuristics to detect incomplete scripts (cut-off mid-sentence, etc.)
+    When LLM-assisted mode is enabled, can suggest completions.
+    """
+    
+    def __init__(self, llm_assisted: bool = False, severity: Severity = Severity.WARN):
+        super().__init__("script_completeness", severity)
+        self.llm_assisted = llm_assisted
+    
+    def check(self, artifact: Dict[str, Any]) -> GateResult:
+        """
+        Check if script appears complete.
+        
+        Heuristics:
+        - Ends with proper punctuation (. ! ?)
+        - Not cut off mid-word or mid-sentence
+        - Has reasonable structure (multiple sentences)
+        """
+        content = artifact.get('content', '').strip()
+        
+        if not content:
+            return self._create_result(
+                QualityStatus.FAIL,
+                "Script is empty",
+                {"llm_assisted": self.llm_assisted}
+            )
+        
+        # Check for proper ending punctuation
+        proper_endings = ('.', '!', '?', '..."', '."', '!"', '?"')
+        ends_properly = content.endswith(proper_endings)
+        
+        # Check for common signs of incomplete text
+        incomplete_markers = [
+            content.endswith(','),
+            content.endswith(':'),
+            content.endswith(';'),
+            content.endswith(' e'),  # ends with "and" in Portuguese
+            content.endswith(' ou'),  # ends with "or"
+            content.endswith(' mas'),  # ends with "but"
+            content.endswith(' porém'),
+            content.endswith(' então'),
+        ]
+        
+        has_incomplete_markers = any(incomplete_markers)
+        
+        # Count sentences (rough estimate)
+        sentence_count = sum(1 for c in content if c in '.!?')
+        
+        # Determine if script appears complete
+        is_complete = ends_properly and not has_incomplete_markers and sentence_count >= 2
+        
+        if not is_complete:
+            details = {
+                "ends_properly": ends_properly,
+                "has_incomplete_markers": has_incomplete_markers,
+                "sentence_count": sentence_count,
+                "last_chars": content[-50:] if len(content) >= 50 else content,
+                "llm_assisted": self.llm_assisted
+            }
+            
+            if self.llm_assisted:
+                details["suggestion"] = (
+                    "Script may be incomplete. Consider using LLM to complete or regenerate with higher NUM_PREDICT."
+                )
+            
+            return self._create_result(
+                QualityStatus.WARN if self.llm_assisted else QualityStatus.FAIL,
+                f"Script appears incomplete (ends: '{content[-30:]}')",
+                details
+            )
+        
+        return self._create_result(
+            QualityStatus.PASS,
+            f"Script appears complete ({sentence_count} sentences)",
+            {
+                "sentence_count": sentence_count,
+                "ends_properly": ends_properly,
+                "llm_assisted": self.llm_assisted
+            }
+        )

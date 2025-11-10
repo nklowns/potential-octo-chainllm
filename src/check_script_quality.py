@@ -18,7 +18,8 @@ from src.quality.gates.script_gates import (
     SchemaValidationGate,
     WordBoundsGate,
     ForbiddenTermsGate,
-    LanguageGate
+    LanguageGate,
+    ScriptCompletenessGate
 )
 from src.quality.manifest import RunManifest, ScriptEntry
 from src.quality.reporters import QualityReporter
@@ -97,6 +98,11 @@ class ScriptQualityChecker:
                 gates.append(LanguageGate(
                     script_config.get("language", "pt-BR"),
                     severity
+                ))
+            elif gate_name == "script_completeness":
+                gates.append(ScriptCompletenessGate(
+                    llm_assisted=self.quality_config.llm_assisted,
+                    severity=severity
                 ))
         
         logger.info(f"Initialized {len(gates)} quality gates")

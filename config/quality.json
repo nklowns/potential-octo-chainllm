@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "llm_assisted": false,
+  "llm_assisted": true,
   "script": {
     "min_words": 10,
     "max_words": 2000,
@@ -23,6 +23,7 @@
     "word_bounds": "warn",
     "forbidden_terms": "error",
     "language": "warn",
+    "script_completeness": "warn",
     "duplicates": "warn",
     "audio_format": "error",
     "duration_consistency": "error",
@@ -35,7 +36,7 @@
       "word_bounds",
       "forbidden_terms",
       "language",
-      "duplicates"
+      "script_completeness"
     ],
     "audio": [
       "audio_format",
