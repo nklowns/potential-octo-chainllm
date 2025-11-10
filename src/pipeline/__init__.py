@@ -7,6 +7,7 @@ from src.pipeline.exceptions import (
     TTSConnectionError,
     TTSPipelineError
 )
+from src.pipeline.config import config
 
 __all__ = [
     "PipelineError",
@@ -14,4 +15,5 @@ __all__ = [
     "ModelNotFoundError",
     "TTSConnectionError",
     "TTSPipelineError",
+    "config",
 ]
