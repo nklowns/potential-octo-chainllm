@@ -31,6 +31,25 @@ services:
     command: >
       sh -c "python -m src.generators.script_generator && python -m src.generators.audio_generator"
 
+  test-runner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.manager
+    image: audio-pipeline-app:latest
+    container_name: pipeline-tests
+    restart: 'no'
+    networks:
+      - proxy_net
+    user: appuser
+    working_dir: /home/appuser/app
+    volumes:
+      - ../data/input:/home/appuser/app/data/input:ro
+      - ../data/output:/home/appuser/app/data/output
+      - ../config:/home/appuser/app/config:ro
+    env_file:
+      - ../.env
+    command: pytest -q
+
   # Serviço para gerar imagens
   image-generator:
     build:

@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QualityConfig",
+  "type": "object",
+  "properties": {
+    "enabled": { "type": "boolean" },
+    "llm_assisted": { "type": "boolean" },
+    "script": {
+      "type": "object",
+      "properties": {
+        "min_words": { "type": "integer", "minimum": 0 },
+        "max_words": { "type": "integer", "minimum": 1 },
+        "forbidden_terms_file": { "type": "string" },
+        "forbidden_terms": { "type": "array", "items": { "type": "string" } },
+        "language": { "type": "string" },
+        "allow_duplicates": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "audio": {
+      "type": "object",
+      "properties": {
+        "min_duration_sec": { "type": "number", "minimum": 0 },
+        "max_duration_sec": { "type": "number", "minimum": 0 },
+        "min_sample_rate": { "type": "integer", "minimum": 8000 },
+        "max_leading_silence_ms": { "type": "integer", "minimum": 0 },
+        "max_trailing_silence_ms": { "type": "integer", "minimum": 0 },
+        "max_silence_proportion": { "type": "number", "minimum": 0, "maximum": 1 },
+        "target_loudness_dbfs_min": { "type": "number" },
+        "target_loudness_dbfs_max": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "severity": {
+      "type": "object",
+      "patternProperties": {
+        ".*": { "type": "string", "enum": ["error", "warn"] }
+      },
+      "additionalProperties": false
+    },
+    "ordering": {
+      "type": "object",
+      "properties": {
+        "script": { "type": "array", "items": { "type": "string" } },
+        "audio": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["enabled", "script", "audio", "severity", "ordering"],
+  "additionalProperties": false
+}

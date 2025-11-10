@@ -199,6 +199,15 @@ list-failures: ## QUALITY: Lista artefatos reprovados
 generate-summary: ## QUALITY: Gera relatório consolidado
 	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm manager python src/generate_summary.py
 
+reprocess-failures: ## QUALITY: Reprocessa apenas artefatos reprovados
+	@echo "🔁 Reprocessando artefatos reprovados..."
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm manager python src/reprocess_failures.py
+
+test: ## QUALITY: Roda testes unitários (pytest)
+	@echo "🧪 Executando testes em container isolado..."
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) up --build --abort-on-container-exit --exit-code-from test-runner test-runner
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) rm -f test-runner >/dev/null 2>&1 || true
+
 # ============================================
 # MONITORAMENTO
 # ============================================

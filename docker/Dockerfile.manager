@@ -12,6 +12,8 @@ RUN apt-get update \
 # Copia somente o que precisamos (sem transformar em pacote Python)
 COPY requirements.txt ./
 COPY src/ ./src/
+COPY config/ ./config/
+COPY tests/ ./tests/
 
 # Instala dependências sem modo editável (não tratamos como package)
 RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
@@ -24,11 +26,14 @@ RUN mkdir -p /home/appuser/app/data/input \
              /home/appuser/app/data/output/scripts \
              /home/appuser/app/data/output/audio \
              /home/appuser/app/data/output/images \
-             /home/appuser/app/config && \
+             /home/appuser/app/config \
+             /home/appuser/app/tests && \
     chown -R appuser:appuser /home/appuser/app
 
 # Copia o código fonte para o diretório de trabalho do usuário
 COPY --chown=appuser:appuser src/ /home/appuser/app/src/
+COPY --chown=appuser:appuser config/ /home/appuser/app/config/
+COPY --chown=appuser:appuser tests/ /home/appuser/app/tests/
 
 USER appuser
 
