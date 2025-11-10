@@ -7,8 +7,8 @@ services:
   # Serviço para gerar scripts e áudio
   manager:
     build:
-      context: .
-      dockerfile: Dockerfile.manager
+      context: ..
+      dockerfile: docker/Dockerfile.manager
     image: audio-pipeline-app:latest # Nomeia a imagem construída
     container_name: pipeline-manager
     restart: 'no'
@@ -17,25 +17,25 @@ services:
     user: appuser # Executa como usuário não-root
     working_dir: /home/appuser/app
     volumes:
-      - ./input:/home/appuser/app/input:ro # Monta input como somente leitura
-      - ./output:/home/appuser/app/output
-      - ./config:/home/appuser/app/config:ro # Monta config como somente leitura
+      - ../data/input:/home/appuser/app/data/input:ro # Monta input como somente leitura
+      - ../data/output:/home/appuser/app/data/output
+      - ../config:/home/appuser/app/config:ro # Monta config como somente leitura
     env_file:
-      - .env
+      - ../.env
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import os; os.path.exists(\"/home/appuser/app/input/topics.txt\")' || exit 1"]
+      test: ["CMD-SHELL", "python -c 'import os; os.path.exists(\"/home/appuser/app/data/input/topics.txt\")' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 5s
     command: >
-      sh -c "python generate_scripts.py && python text_to_speech.py"
+      sh -c "python -m src.generators.script_generator && python -m src.generators.audio_generator"
 
   # Serviço para gerar imagens
   image-generator:
     build:
-      context: .
-      dockerfile: Dockerfile.manager
+      context: ..
+      dockerfile: docker/Dockerfile.manager
     image: audio-pipeline-app:latest # Reutiliza a mesma imagem
     container_name: image-generator
     restart: 'no'
@@ -44,13 +44,13 @@ services:
     user: appuser
     working_dir: /home/appuser/app
     volumes:
-      - ./output:/home/appuser/app/output # Precisa de acesso de leitura e escrita
+      - ../data/output:/home/appuser/app/data/output # Precisa de acesso de leitura e escrita
     env_file:
-      - .env
+      - ../.env
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import os; os.path.exists(\"/home/appuser/app/output/scripts\")' || exit 1"]
+      test: ["CMD-SHELL", "python -c 'import os; os.path.exists(\"/home/appuser/app/data/output/scripts\")' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 5s
-    command: python image_generator.py
+    command: python -m src.generators.image_generator

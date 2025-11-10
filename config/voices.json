@@ -1,0 +1,12 @@
+{
+  "available_voices": {
+    "piper_pt_br": {
+      "model": "pt_BR/faber/medium",
+      "description": "Voz masculina em português brasileiro"
+    },
+    "piper_pt_br_female": {
+      "model": "pt_BR/edresson/medium",
+      "description": "Voz feminina em português brasileiro"
+    }
+  }
+}

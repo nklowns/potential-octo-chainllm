@@ -54,15 +54,16 @@ docker-compose.override.yml
 .env
 !.env.example
 
-# Outputs (gerados pelo pipeline)
-output/scripts/*.txt
-output/audio/*.wav
-output/images/*.png
+# Outputs (gerados pelo pipeline) - nova estrutura data/
+data/output/scripts/*.txt
+data/output/audio/*.wav
+data/output/images/*.png
 
 # Mantém estrutura de diretórios mas ignora conteúdo
-!output/scripts/.gitkeep
-!output/audio/.gitkeep
-!output/images/.gitkeep
+!data/output/scripts/.gitkeep
+!data/output/audio/.gitkeep
+!data/output/images/.gitkeep
+!data/input/.gitkeep
 
 # Backups
 backups/

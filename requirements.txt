@@ -1,0 +1,7 @@
+# Core dependencies
+requests>=2.31.0
+ollama>=0.4.0
+urllib3>=2.0.6          # Security: Fixed CVE for Cookie header stripping on cross-origin redirects
+
+# Utility libraries
+tenacity>=8.0.0         # For robust retry mechanisms
