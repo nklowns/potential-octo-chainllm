@@ -97,7 +97,7 @@ tts-status: ## TTS: Status do Piper TTS
 
 tts-test: ## TTS: Testa API do Piper TTS
 	@echo "🧪 Testando Piper TTS..."
-	@curl -sk https://$(TTS_SERVICE_NAME).$(DOMAIN_DUCKDNS)/voices | jq -r '.[0].name' || echo "❌ Falha"
+	@curl -sk https://$(TTS_SERVICE_NAME).$(DOMAIN_DUCKDNS)/voices | jq -r 'keys[0]' || echo "❌ Falha"
 	@echo "✅ Teste concluído"
 
 tts-migrate: ## TTS: Migração completa do Piper TTS
@@ -105,7 +105,7 @@ tts-migrate: ## TTS: Migração completa do Piper TTS
 	@$(MAKE) tts-down
 	@$(MAKE) tts-build
 	@$(MAKE) tts-up
-	@sleep 5
+	@sleep 10
 	@$(MAKE) tts-test
 	@echo "✅ Migração concluída!"
 
