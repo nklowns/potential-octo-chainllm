@@ -4,6 +4,11 @@ FROM python:3.11-slim AS base
 # Diretório de trabalho inicial
 WORKDIR /app
 
+# Sistema: dependências necessárias para processamento de áudio (ffmpeg)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copia somente o que precisamos (sem transformar em pacote Python)
 COPY requirements.txt ./
 COPY src/ ./src/
