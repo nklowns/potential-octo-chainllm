@@ -5,3 +5,10 @@ urllib3>=2.0.6          # Security: Fixed CVE for Cookie header stripping on cro
 
 # Utility libraries
 tenacity>=8.0.0         # For robust retry mechanisms
+
+# Quality gates dependencies
+jsonschema>=4.17.0      # JSON Schema validation (Draft 7 support)
+soundfile>=0.12.1       # Audio file metadata reading
+rfc3339-validator>=0.1.4  # Optional: Strict date-time format validation for JSON Schema
+pydub>=0.25.1           # Audio analysis (silence detection, loudness)
+numpy>=1.24.0           # Audio signal processing

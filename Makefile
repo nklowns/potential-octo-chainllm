@@ -12,6 +12,10 @@ COMPOSE_MANAGER := deploy/docker-compose.manager.yml
 COMPOSE_IMAGES := deploy/docker-compose.images.yml
 COMPOSE_OLLAMA := deploy/docker-compose.ollama.yml
 
+# Quality gates configuration
+DISABLE_GATES ?= 0
+STRICT ?= 0
+
 # ============================================
 # HELP
 # ============================================
@@ -35,6 +39,10 @@ help: ## Mostra esta mensagem de ajuda
 	@echo "═══ 🚀 PIPELINE ═══"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; /^[^#]/ && /## PIPELINE/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, substr($$2, 11)}'
+	@echo ""
+	@echo "═══ ✅ QUALITY GATES ═══"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; /^[^#]/ && /## QUALITY/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, substr($$2, 10)}'
 	@echo ""
 	@echo "═══ 📊 MONITORAMENTO ═══"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -145,17 +153,51 @@ ollama-pull: ## OLLAMA: Pull do modelo configurado
 # ============================================
 # PIPELINE
 # ============================================
-pipeline: build tts-up manager ## PIPELINE: Executa pipeline completo (scripts + áudio)
+scripts-pipeline: ## PIPELINE: Executa pipeline de scripts (geração + quality)
+	@echo "📝 Executando pipeline de scripts..."
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm -e INPUT_FILE=$(INPUT_FILE) manager python -m src.generators.script_generator
+	@$(MAKE) quality-scripts
 
-pipeline-full: build ollama-up tts-up manager ## PIPELINE: Pipeline com Ollama local
+audio-pipeline: ## PIPELINE: Executa pipeline de áudio (geração + quality)
+	@echo "🔊 Executando pipeline de áudio..."
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm manager python -m src.generators.audio_generator
+	@$(MAKE) quality-audio
 
-manager: ## PIPELINE: Executa geração de scripts e áudio
+pipeline: build tts-up scripts-pipeline audio-pipeline ## PIPELINE: Executa pipeline completo (scripts + áudio + quality gates)
+
+pipeline-without-gates: ## PIPELINE: Pipeline completo sem quality gates
+	@echo "🎯 Executando pipeline sem quality gates..."
+	@DISABLE_GATES=1 $(MAKE) build tts-up
+	@DISABLE_GATES=1 INPUT_FILE=$(INPUT_FILE) docker compose --env-file .env -f $(COMPOSE_MANAGER) up manager
+
+pipeline-full: build ollama-up tts-up scripts-pipeline audio-pipeline ## PIPELINE: Pipeline com Ollama local
+
+manager: ## PIPELINE: Executa geração de scripts e áudio (legacy)
 	@echo "🎯 Executando pipeline..."
 	@INPUT_FILE=$(INPUT_FILE) docker compose --env-file .env -f $(COMPOSE_MANAGER) up manager
 
 image-generator: ## PIPELINE: Executa geração de imagens
 	@echo "🎨 Executando geração de imagens..."
 	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm image-generator
+
+# ============================================
+# QUALITY GATES
+# ============================================
+quality-scripts: ## QUALITY: Executa quality gates para scripts
+	@echo "✅ Executando quality gates para scripts..."
+	@DISABLE_GATES=$(DISABLE_GATES) STRICT=$(STRICT) docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm manager python src/check_script_quality.py
+
+quality-audio: ## QUALITY: Executa quality gates para áudio
+	@echo "✅ Executando quality gates para áudio..."
+	@DISABLE_GATES=$(DISABLE_GATES) STRICT=$(STRICT) docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm manager python src/check_audio_quality.py
+
+quality-gates: quality-scripts quality-audio ## QUALITY: Executa todos os quality gates
+
+list-failures: ## QUALITY: Lista artefatos reprovados
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm manager python src/list_failures.py
+
+generate-summary: ## QUALITY: Gera relatório consolidado
+	@docker compose --env-file .env -f $(COMPOSE_MANAGER) run --rm manager python src/generate_summary.py
 
 # ============================================
 # MONITORAMENTO

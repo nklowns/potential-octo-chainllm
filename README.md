@@ -23,13 +23,15 @@
 O **Audio Pipeline** é uma solução completa para geração automatizada de conteúdo multimídia:
 
 1. **📝 Geração de Scripts**: Cria roteiros usando LLMs via Ollama
-2. **🔊 Síntese de Áudio**: Converte texto em áudio usando Piper TTS
-3. **🖼️ Geração de Imagens**: Cria imagens com Stable Diffusion (em breve)
+2. **✅ Quality Gates**: Valida qualidade de scripts e áudios
+3. **🔊 Síntese de Áudio**: Converte texto em áudio usando Piper TTS
+4. **🖼️ Geração de Imagens**: Cria imagens com Stable Diffusion (em breve)
 
 ### Características
 
 ✅ **Containerizado**: 100% Docker, fácil de implantar
 ✅ **Escalável**: Arquitetura modular e extensível
+✅ **Quality Gates**: Validação automática de qualidade
 ✅ **Seguro**: HTTPS via Traefik, certificados automáticos
 ✅ **Observável**: Logs, health checks e monitoramento
 ✅ **Resiliente**: Retry automático e tratamento de erros
@@ -129,7 +131,7 @@ EOF
 
 ```bash
 make setup    # Setup inicial (uma vez)
-make pipeline # Gera scripts + áudio
+make pipeline # Gera scripts + áudio + quality gates
 make monitor  # Visualiza resultados
 ```
 
@@ -147,8 +149,17 @@ make tts-up          # Inicia Piper TTS
 make ollama-up       # Inicia Ollama local (opcional)
 
 # PIPELINE
-make pipeline        # Pipeline completo (scripts + áudio)
-make manager         # Apenas geração de scripts/áudio
+make pipeline              # Pipeline completo (scripts + áudio + quality gates)
+make scripts-pipeline      # Apenas pipeline de scripts + quality
+make audio-pipeline        # Apenas pipeline de áudio + quality
+make pipeline-without-gates # Pipeline sem quality gates (desenvolvimento)
+
+# QUALITY GATES
+make quality-scripts   # Valida scripts gerados
+make quality-audio     # Valida áudios gerados
+make quality-gates     # Valida scripts + áudios
+make list-failures     # Lista artefatos reprovados
+make generate-summary  # Gera relatório consolidado
 
 # MONITORAMENTO
 make monitor         # Visualiza outputs gerados
@@ -231,6 +242,12 @@ OUTPUT_SCRIPTS=/home/appuser/app/data/output/scripts
 OUTPUT_AUDIO=/home/appuser/app/data/output/audio
 ```
 
+**Quality Gates:**
+```bash
+DISABLE_GATES=0    # 1 = desabilita quality gates
+STRICT=0           # 1 = exit code != 0 se houver falhas (CI/CD)
+```
+
 ## 📚 Documentação Completa
 
 ### Guias Essenciais
@@ -238,6 +255,9 @@ OUTPUT_AUDIO=/home/appuser/app/data/output/audio
 - **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Guia completo de implantação e uso
 - **[DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Guia de desenvolvimento e contribuição
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Arquitetura detalhada e design decisions
+- **[QUALITY_GATES_STATUS.md](docs/QUALITY_GATES_STATUS.md)** - ✨ **Status atual da implementação** (READ FIRST)
+- **[QUALITY_GATES_USAGE.md](docs/QUALITY_GATES_USAGE.md)** - Guia completo de uso
+- **[QUALITY_GATES_V2.md](docs/QUALITY_GATES_V2.md)** - Especificação técnica e roadmap
 
 ### Documentação Técnica
 

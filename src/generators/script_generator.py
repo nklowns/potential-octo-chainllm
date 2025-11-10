@@ -199,15 +199,41 @@ class ScriptGenerator:
 
                 if script_content:
                     safe_topic = self._sanitize_filename(topic)[:50]
-                    filename = f"script_{i:03d}_{safe_topic}.txt"
-                    filepath = config.SCRIPTS_OUTPUT_DIR / filename
-
+                    filename_base = f"script_{i:03d}_{safe_topic}"
+                    
+                    # Save as .txt file (for compatibility)
+                    txt_filepath = config.SCRIPTS_OUTPUT_DIR / f"{filename_base}.txt"
                     try:
-                        with open(filepath, 'w', encoding='utf-8') as f:
+                        with open(txt_filepath, 'w', encoding='utf-8') as f:
                             f.write(script_content)
-                        logger.info(f"✅ Script saved to {filepath} ({elapsed_time:.2f}s)")
+                        logger.info(f"✅ Script saved to {txt_filepath} ({elapsed_time:.2f}s)")
                     except IOError as e:
-                        logger.error(f"Failed to write script to file {filepath}: {e}")
+                        logger.error(f"Failed to write script to file {txt_filepath}: {e}")
+                        continue
+                    
+                    # Also save as .json (for quality gates)
+                    import json
+                    from datetime import datetime
+                    
+                    word_count = len(script_content.split())
+                    script_json = {
+                        "topic": topic,
+                        "content": script_content,
+                        "metadata": {
+                            "model": self.model,
+                            "timestamp": datetime.utcnow().isoformat() + "Z",
+                            "word_count": word_count,
+                            "duration_seconds": round(elapsed_time, 2)
+                        }
+                    }
+                    
+                    json_filepath = config.SCRIPTS_OUTPUT_DIR / f"{filename_base}.json"
+                    try:
+                        with open(json_filepath, 'w', encoding='utf-8') as f:
+                            json.dump(script_json, f, indent=2, ensure_ascii=False)
+                        logger.debug(f"📝 Script JSON saved to {json_filepath}")
+                    except IOError as e:
+                        logger.warning(f"Failed to write JSON file {json_filepath}: {e}")
                 else:
                     logger.error(f"❌ Failed to generate script for topic: '{topic}' after retries.")
             except Exception as e:

@@ -56,8 +56,10 @@ docker-compose.override.yml
 
 # Outputs (gerados pelo pipeline) - nova estrutura data/
 data/output/scripts/*.txt
+data/output/scripts/*.json
 data/output/audio/*.wav
 data/output/images/*.png
+data/output/quality_gates/
 
 # Mantém estrutura de diretórios mas ignora conteúdo
 !data/output/scripts/.gitkeep

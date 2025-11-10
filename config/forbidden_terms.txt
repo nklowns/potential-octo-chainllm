@@ -1,0 +1,8 @@
+# Forbidden Terms Configuration
+# One term per line. Lines starting with # are comments.
+# Terms are case-insensitive.
+
+hack
+pirata
+ilegal
+crackeado

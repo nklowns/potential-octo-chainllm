@@ -1,0 +1,48 @@
+{
+  "enabled": true,
+  "llm_assisted": true,
+  "script": {
+    "min_words": 10,
+    "max_words": 2000,
+    "forbidden_terms_file": "config/forbidden_terms.txt",
+    "language": "pt-BR",
+    "allow_duplicates": false
+  },
+  "audio": {
+    "min_duration_sec": 5,
+    "max_duration_sec": 300,
+    "min_sample_rate": 16000,
+    "max_leading_silence_ms": 1000,
+    "max_trailing_silence_ms": 1000,
+    "max_silence_proportion": 0.3,
+    "target_loudness_dbfs_min": -30.0,
+    "target_loudness_dbfs_max": -10.0
+  },
+  "severity": {
+    "schema_validation": "error",
+    "word_bounds": "warn",
+    "forbidden_terms": "error",
+    "language": "warn",
+    "script_completeness": "warn",
+    "duplicates": "warn",
+    "audio_format": "error",
+    "duration_consistency": "error",
+    "silence": "warn",
+    "loudness": "warn"
+  },
+  "ordering": {
+    "script": [
+      "schema_validation",
+      "word_bounds",
+      "forbidden_terms",
+      "language",
+      "script_completeness"
+    ],
+    "audio": [
+      "audio_format",
+      "duration_consistency",
+      "silence",
+      "loudness"
+    ]
+  }
+}

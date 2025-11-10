@@ -21,7 +21,10 @@ class Config:
     OLLAMA_TEMPERATURE: float = float(os.getenv('OLLAMA_TEMPERATURE', '0.7'))
     OLLAMA_TOP_K: int = int(os.getenv('OLLAMA_TOP_K', '40'))
     OLLAMA_TOP_P: float = float(os.getenv('OLLAMA_TOP_P', '0.9'))
-    OLLAMA_NUM_PREDICT: int = int(os.getenv('OLLAMA_NUM_PREDICT', '150'))
+    # Increased from 150 to 500 to support narrations of 15-60 seconds
+    # At ~2-3 words/sec, 60s = ~180 words = ~240 tokens (PT uses ~1.3 tokens/word)
+    # 500 tokens provides headroom for complete narrations
+    OLLAMA_NUM_PREDICT: int = int(os.getenv('OLLAMA_NUM_PREDICT', '500'))
     OLLAMA_RATE_LIMIT: int = int(os.getenv('OLLAMA_RATE_LIMIT', '0'))
 
     # TTS configuration
