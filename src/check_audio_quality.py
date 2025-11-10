@@ -6,22 +6,14 @@ import logging
 import sys
 import os
 from pathlib import Path
-from datetime import datetime
+from typing import List, Any, Dict
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.quality.base import Severity, QualityStatus
-from src.quality.config import QualityConfig
-from src.quality.runner import QualityGateRunner
-from src.quality.gates.audio_gates import (
-    AudioFormatGate,
-    DurationConsistencyGate,
-    SilenceDetectionGate,
-    LoudnessCheckGate
-)
-from src.quality.manifest import RunManifest, AudioEntry
-from src.quality.reporters import QualityReporter
+from src.quality.base import QualityStatus
+from src.quality.base_checker import BaseQualityChecker
+from src.quality.manifest import AudioEntry
 from src.pipeline import config as pipeline_config
 
 logging.basicConfig(
@@ -31,230 +23,76 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class AudioQualityChecker:
+class AudioQualityChecker(BaseQualityChecker):
     """Checks quality of generated audio files."""
     
-    def __init__(self, disable_gates: bool = False):
-        """Initialize the checker."""
-        self.disable_gates = disable_gates
+    def __init__(self, disable_gates: bool = False, max_workers: int = None):
+        """Initialize the audio quality checker."""
+        # Get max workers from environment or parameter
+        if max_workers is None:
+            max_workers = int(os.getenv('AUDIO_WORKERS', '1'))
         
-        # Load quality configuration
-        quality_config_path = pipeline_config.CONFIG_DIR / "quality.json"
-        self.quality_config = QualityConfig(quality_config_path)
+        super().__init__(
+            artifact_type='audio',
+            disable_gates=disable_gates,
+            max_workers=max_workers
+        )
         
-        # Setup paths with improved structure
+        # Audio-specific paths
         self.audio_dir = pipeline_config.AUDIO_OUTPUT_DIR
-        self.reports_dir = pipeline_config.OUTPUT_DIR / "quality_gates" / "reports" / "audio"
-        self.quarantine_dir = pipeline_config.OUTPUT_DIR / "quality_gates" / "quarantine" / "audio"
-        self.manifest_path = pipeline_config.OUTPUT_DIR / "quality_gates" / "run_manifest.json"
-        
-        # Initialize manifest and reporter
-        self.manifest = RunManifest(self.manifest_path)
-        self.reporter = QualityReporter(self.reports_dir, self.quarantine_dir)
-        
-        # Setup gates
-        self.gates = self._setup_gates()
+        self.scripts_dir = pipeline_config.SCRIPTS_OUTPUT_DIR
     
     def _setup_gates(self):
-        """Setup quality gates based on configuration."""
+        """Setup quality gates using factory pattern."""
         if self.disable_gates or not self.quality_config.enabled:
             logger.info("Quality gates disabled")
             return []
         
-        gates = []
-        audio_config = self.quality_config.audio_config
-        
-        # Create gates based on configuration order
-        for gate_name in self.quality_config.audio_gate_order:
-            severity_str = self.quality_config.get_severity(gate_name)
-            severity = Severity.ERROR if severity_str == "error" else Severity.WARN
-            
-            if gate_name == "audio_format":
-                gates.append(AudioFormatGate(
-                    audio_config.get("min_sample_rate", 16000),
-                    severity
-                ))
-            elif gate_name == "duration_consistency":
-                gates.append(DurationConsistencyGate(severity))
-            elif gate_name == "silence":
-                gates.append(SilenceDetectionGate(
-                    max_leading_silence_ms=audio_config.get("max_leading_silence_ms", 1000),
-                    max_trailing_silence_ms=audio_config.get("max_trailing_silence_ms", 1000),
-                    max_silence_proportion=audio_config.get("max_silence_proportion", 0.3),
-                    severity=severity
-                ))
-            elif gate_name == "loudness":
-                gates.append(LoudnessCheckGate(
-                    target_loudness_dbfs_min=audio_config.get("target_loudness_dbfs_min", -30.0),
-                    target_loudness_dbfs_max=audio_config.get("target_loudness_dbfs_max", -10.0),
-                    severity=severity
-                ))
-        
+        # Use factory to create audio gates
+        gates = self.gate_factory.create_audio_gates()
         logger.info(f"Initialized {len(gates)} quality gates")
         return gates
     
-    def _get_script_word_count(self, audio_path: Path) -> int:
-        """Get word count from corresponding script in manifest."""
-        # Audio filename matches script filename (script_XXX_topic.wav)
-        script_id = audio_path.stem
+    def _load_artifact(self, artifact_path: Path) -> Any:
+        """Load audio file with metadata."""
+        # Get word count from corresponding script
+        script_id = artifact_path.stem
+        word_count = 0
         
         script_entry = self.manifest.get_script(script_id)
         if script_entry:
-            return script_entry.get("word_count", 0)
+            word_count = script_entry.get("word_count", 0)
+        else:
+            # Fallback: try to load from script file directly
+            script_path = self.scripts_dir / f"{script_id}.txt"
+            if script_path.exists():
+                try:
+                    with open(script_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    word_count = len(content.split())
+                except:
+                    pass
         
-        # Fallback: try to load from script file directly
-        script_path = pipeline_config.SCRIPTS_OUTPUT_DIR / f"{script_id}.txt"
-        if script_path.exists():
-            try:
-                with open(script_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                return len(content.split())
-            except:
-                pass
-        
-        return 0
+        return {
+            "audio_path": artifact_path,
+            "word_count": word_count
+        }
     
-    def check_audio(self, audio_path: Path) -> bool:
-        """
-        Check a single audio file.
-        
-        Returns:
-            True if audio passed all critical gates, False otherwise.
-        """
-        audio_id = audio_path.stem
-        script_id = audio_id  # Same as script
-        logger.info(f"Checking audio: {audio_id}")
-        
-        try:
-            # Get word count for duration consistency check
-            word_count = self._get_script_word_count(audio_path)
-            
-            # Run format gate first
-            format_results = []
-            if self.gates:
-                # Run format gate
-                format_gates = [g for g in self.gates if isinstance(g, AudioFormatGate)]
-                if format_gates:
-                    runner = QualityGateRunner(format_gates, lazy=False)
-                    format_results = runner.run(audio_path)
-                    
-                    # If format check failed, skip duration check
-                    if runner.has_critical_failures(format_results):
-                        results = format_results
-                        overall_status = QualityStatus.FAIL
-                        has_critical_failures = True
-                    else:
-                        # Run duration consistency gate
-                        duration_gates = [g for g in self.gates if isinstance(g, DurationConsistencyGate)]
-                        if duration_gates:
-                            artifact_for_duration = {
-                                "audio_path": audio_path,
-                                "word_count": word_count
-                            }
-                            duration_runner = QualityGateRunner(duration_gates, lazy=False)
-                            duration_results = duration_runner.run(artifact_for_duration)
-                            results = format_results + duration_results
-                        else:
-                            results = format_results
-                        
-                        # Calculate overall status
-                        combined_runner = QualityGateRunner([], lazy=False)
-                        overall_status = combined_runner.get_overall_status(results)
-                        has_critical_failures = combined_runner.has_critical_failures(results)
-                else:
-                    results = []
-                    overall_status = QualityStatus.PASS
-                    has_critical_failures = False
-            else:
-                # No gates, pass through
-                results = []
-                overall_status = QualityStatus.PASS
-                has_critical_failures = False
-            
-            # Get audio duration for metadata
-            duration = None
-            try:
-                import soundfile as sf
-                info = sf.info(audio_path)
-                duration = info.duration
-            except:
-                pass
-            
-            # Generate report
-            self.reporter.generate_report(
-                artifact_id=audio_id,
-                artifact_type="audio",
-                artifact_path=audio_path,
-                results=results,
-                overall_status=overall_status,
-                metadata={
-                    "script_id": script_id,
-                    "duration": duration,
-                    "word_count": word_count
-                }
-            )
-            
-            # Quarantine if critical failure
-            if has_critical_failures:
-                self.reporter.quarantine_artifact(
-                    audio_path,
-                    audio_id,
-                    reason="Critical quality gate failure"
-                )
-            
-            # Update manifest
-            self.manifest.add_audio(AudioEntry(
-                script_id=script_id,
-                audio_id=audio_id,
-                path=str(audio_path),
-                quality_status=overall_status.value,
-                duration=duration,
-                timestamp=datetime.utcnow().isoformat() + "Z",
-                quality_details={
-                    "gates_run": len(results),
-                    "has_critical_failures": has_critical_failures
-                }
-            ))
-            
-            return not has_critical_failures
-            
-        except Exception as e:
-            logger.error(f"Error checking audio {audio_path}: {e}", exc_info=True)
-            # Mark as failed in manifest
-            self.manifest.add_audio(AudioEntry(
-                script_id=script_id,
-                audio_id=audio_id,
-                path=str(audio_path),
-                quality_status="fail",
-                timestamp=datetime.utcnow().isoformat() + "Z",
-                quality_details={"error": str(e)}
-            ))
-            return False
+    def _create_manifest_entry(self, artifact_path: Path, results: List, overall_status: QualityStatus, metadata: Dict) -> Dict:
+        """Create manifest entry for audio."""
+        return AudioEntry(
+            audio_id=artifact_path.stem,
+            script_id=artifact_path.stem,
+            audio_path=str(artifact_path),
+            status=overall_status,
+            gates_passed=[r.gate_name for r in results if r.passed],
+            gates_failed=[r.gate_name for r in results if not r.passed],
+            metadata=metadata
+        ).to_dict()
     
-    def check_all(self) -> int:
-        """
-        Check all audio files in the output directory.
-        
-        Returns:
-            Number of audio files that failed critical gates.
-        """
-        audio_files = list(self.audio_dir.glob("*.wav"))
-        
-        if not audio_files:
-            logger.warning(f"No audio files found in {self.audio_dir}")
-            return 0
-        
-        logger.info(f"Found {len(audio_files)} audio files to check")
-        
-        failed_count = 0
-        for audio_file in audio_files:
-            passed = self.check_audio(audio_file)
-            if not passed:
-                failed_count += 1
-        
-        logger.info(f"Audio quality check complete: {len(audio_files) - failed_count}/{len(audio_files)} passed")
-        
-        return failed_count
+    def _get_artifact_files(self) -> List[Path]:
+        """Get list of audio files to check."""
+        return list(self.audio_dir.glob("*.wav"))
 
 
 def main():
@@ -262,13 +100,19 @@ def main():
     # Check for DISABLE_GATES environment variable
     disable_gates = os.getenv("DISABLE_GATES", "0") == "1"
     strict_mode = os.getenv("STRICT", "0") == "1"
+    max_workers = int(os.getenv("AUDIO_WORKERS", "1"))
     
     if disable_gates:
         logger.info("Quality gates are DISABLED (DISABLE_GATES=1)")
     
+    logger.info(f"Using {max_workers} worker(s) for audio quality checks")
+    
     try:
-        checker = AudioQualityChecker(disable_gates=disable_gates)
-        failed_count = checker.check_all()
+        checker = AudioQualityChecker(
+            disable_gates=disable_gates,
+            max_workers=max_workers
+        )
+        failed_count = checker.check_all_artifacts()
         
         # In strict mode, exit with non-zero if there were failures
         if strict_mode and failed_count > 0:
