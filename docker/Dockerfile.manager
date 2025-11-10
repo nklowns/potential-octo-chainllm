@@ -9,7 +9,7 @@ COPY requirements.txt ./
 COPY src/ ./src/
 
 # Instala dependências sem modo editável (não tratamos como package)
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
 
 # Cria um usuário não-root para segurança
 RUN useradd --create-home --shell /bin/bash appuser
@@ -22,13 +22,16 @@ RUN mkdir -p /home/appuser/app/data/input \
              /home/appuser/app/config && \
     chown -R appuser:appuser /home/appuser/app
 
+# Copia o código fonte para o diretório de trabalho do usuário
+COPY --chown=appuser:appuser src/ /home/appuser/app/src/
+
 USER appuser
 
 # Define o diretório de trabalho para o usuário
 WORKDIR /home/appuser/app
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/home/appuser/app/src
+    PYTHONPATH=/home/appuser/app
 
 # Expõe os diretórios que serão montados como volumes
 VOLUME /home/appuser/app/data/input
