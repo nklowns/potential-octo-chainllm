@@ -36,7 +36,8 @@
       "word_bounds",
       "forbidden_terms",
       "language",
-      "script_completeness"
+      "script_completeness",
+      "duplicates"
     ],
     "audio": [
       "audio_format",

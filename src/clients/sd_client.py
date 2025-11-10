@@ -6,6 +6,7 @@ from pathlib import Path
 
 from src.pipeline import config
 from src.pipeline.exceptions import ImageGeneratorError
+from src.utils.metrics_exporter import update_http_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,12 @@ class SDClient:
         try:
             # A URL de verificação de saúde é geralmente a raiz
             health_check_url = self.api_url.replace("/sdapi/v1/txt2img", "/")
+            import time
+            t0 = time.time()
             response = self.session.get(health_check_url, timeout=10)
             response.raise_for_status()
+            duration_ms = int((time.time() - t0) * 1000)
+            update_http_metrics(config.OUTPUT_DIR / 'quality_gates' / 'metrics', 'sd', 'GET', response.status_code, duration_ms)
             logger.info(f"✅ Successfully connected to Stable Diffusion server at {self.api_url}")
         except requests.exceptions.RequestException as e:
             raise ImageGeneratorError(f"Failed to connect to Stable Diffusion server at {self.api_url}. Error: {e}")
@@ -52,8 +57,12 @@ class SDClient:
 
         try:
             logger.info("Sending request to Stable Diffusion API...")
+            import time
+            t0 = time.time()
             response = self.session.post(url=self.api_url, json=payload, timeout=300)
             response.raise_for_status()
+            duration_ms = int((time.time() - t0) * 1000)
+            update_http_metrics(config.OUTPUT_DIR / 'quality_gates' / 'metrics', 'sd', 'POST', response.status_code, duration_ms)
 
             r = response.json()
             image_data_b64 = r['images'][0]
@@ -63,6 +72,12 @@ class SDClient:
 
         except requests.exceptions.RequestException as e:
             logger.error(f"❌ API request failed: {e}")
+            try:
+                duration_ms = int((time.time() - t0) * 1000)
+                status = getattr(e.response, 'status_code', 'error') if hasattr(e, 'response') else 'error'
+                update_http_metrics(config.OUTPUT_DIR / 'quality_gates' / 'metrics', 'sd', 'POST', status, duration_ms)
+            except Exception:
+                pass
         except (KeyError, IndexError) as e:
             logger.error(f"❌ Failed to parse API response: {e}")
         except Exception as e:

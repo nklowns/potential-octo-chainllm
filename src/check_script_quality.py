@@ -16,11 +16,9 @@ from src.quality.base import QualityStatus, GateResult
 from src.quality.base_checker import BaseQualityChecker
 from src.quality.manifest import ScriptEntry
 from src.pipeline import config as pipeline_config
+from src.utils.json_logger import configure_json_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+configure_json_logging()
 logger = logging.getLogger(__name__)
 
 

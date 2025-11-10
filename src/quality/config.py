@@ -1,9 +1,9 @@
-"""Configuration loader for quality gates."""
+"""Configuration loader for quality gates (JSON or YAML with profiles)."""
 
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 # Optional import with clear error if missing during validation
 try:
@@ -20,19 +20,37 @@ class QualityConfig:
     """Loads and provides access to quality gate configuration."""
 
     def __init__(self, config_path: Path):
-        """Load quality configuration from JSON file."""
-        self.config_path = config_path
+        """Load quality configuration from JSON or YAML file.
+
+        If a YAML sibling (quality.yaml or quality.yml) exists in the same directory,
+        it takes precedence and supports profiles via utils.config_loader.
+        """
+        self.config_json_path = config_path
+        self.config_yaml_path: Optional[Path] = None
+        for cand in (config_path.with_suffix('.yaml'), config_path.with_suffix('.yml')):
+            if cand.exists():
+                self.config_yaml_path = cand
+                break
         self._config = self._load_config()
 
     def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from file."""
+        """Load configuration from YAML (preferred) or JSON and validate against schema if present."""
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-            logger.info(f"Loaded quality config from {self.config_path}")
+            if self.config_yaml_path:
+                try:
+                    from src.utils.config_loader import load_config_file
+                    config = load_config_file(self.config_yaml_path)
+                    logger.info(f"Loaded quality config (YAML) from {self.config_yaml_path}")
+                except Exception as ye:
+                    logger.error(f"Failed to load YAML quality config {self.config_yaml_path}: {ye}")
+                    raise
+            else:
+                with open(self.config_json_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                logger.info(f"Loaded quality config (JSON) from {self.config_json_path}")
             # Validate against schema if available
             try:
-                schema_path = self.config_path.parent / 'schemas' / 'quality_config_v1.json'
+                schema_path = (self.config_yaml_path or self.config_json_path).parent / 'schemas' / 'quality_config_v1.json'
                 if schema_path.exists():
                     if jsonschema is None or Draft7Validator is None:
                         logger.error("jsonschema library not installed. Install with: pip install jsonschema")
@@ -59,11 +77,16 @@ class QualityConfig:
                 raise
             return config
         except FileNotFoundError:
-            logger.error(f"Quality config not found at {self.config_path}")
+            logger.error(f"Quality config not found at {self.config_yaml_path or self.config_json_path}")
             raise
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in quality config: {e}")
             raise
+
+    @property
+    def source_path(self) -> Path:
+        """Return the path from which the config was loaded."""
+        return self.config_yaml_path or self.config_json_path
 
     @property
     def enabled(self) -> bool:
@@ -103,3 +126,6 @@ class QualityConfig:
     def get_severity(self, gate_name: str, default: str = 'error') -> str:
         """Get severity level for a specific gate."""
         return self.severity_map.get(gate_name, default)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return dict(self._config)

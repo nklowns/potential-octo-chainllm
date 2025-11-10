@@ -1,7 +1,7 @@
 """Quality gate runner."""
 
 import logging
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Dict
 from datetime import datetime
 from .base import GateResult, QualityGate, QualityStatus
 
@@ -9,18 +9,24 @@ logger = logging.getLogger(__name__)
 
 
 class QualityGateRunner:
-    """Runs quality gates against artifacts with lazy evaluation support."""
+    """Runs quality gates against artifacts with lazy evaluation support.
 
-    def __init__(self, gates: List[QualityGate], lazy: bool = True):
+    Optionally accepts a correlation context (e.g., run_id, artifact_id)
+    to enrich structured logs for observability and tracing.
+    """
+
+    def __init__(self, gates: List[QualityGate], lazy: bool = True, context: Optional[Dict[str, Any]] = None):
         """
         Initialize the runner.
 
         Args:
             gates: List of quality gates to run in order.
             lazy: If True, stop running gates after first critical failure.
+            context: Optional dict with correlation fields (run_id, artifact_id, artifact_type).
         """
         self.gates = gates
         self.lazy = lazy
+        self.context = context or {}
 
     def run(self, artifact: Any) -> List[GateResult]:
         """
@@ -37,7 +43,8 @@ class QualityGateRunner:
         for gate in self.gates:
             try:
                 gate_start = datetime.utcnow()
-                logger.info(f"Running gate: {gate.name}")
+                extra_base = {"gate": gate.name, **self.context}
+                logger.info(f"Running gate: {gate.name}", extra=extra_base)
                 result = gate.check(artifact)
                 gate_end = datetime.utcnow()
                 duration_ms = int((gate_end - gate_start).total_seconds() * 1000)
@@ -45,15 +52,16 @@ class QualityGateRunner:
                 result.details.setdefault('metrics', {})
                 result.details['metrics']['duration_ms'] = duration_ms
                 logger.info(
-                    f"Gate completed: {gate.name} status={result.status.value} severity={result.severity.value} duration_ms={duration_ms}"
+                    f"Gate completed: {gate.name} status={result.status.value} severity={result.severity.value} duration_ms={duration_ms}",
+                    extra={"gate": gate.name, "duration_ms": duration_ms, **self.context}
                 )
                 results.append(result)
 
                 # Lazy evaluation: stop on first critical failure
                 if self.lazy and result.is_critical_failure():
                     logger.warning(
-                        f"Critical failure in gate '{gate.name}'. "
-                        f"Skipping remaining gates due to lazy evaluation."
+                        f"Critical failure in gate '{gate.name}'. Skipping remaining gates due to lazy evaluation.",
+                        extra={"gate": gate.name, **self.context}
                     )
                     # Mark remaining gates as skipped
                     for remaining_gate in self.gates[self.gates.index(gate) + 1:]:
@@ -69,7 +77,7 @@ class QualityGateRunner:
             except Exception as e:
                 gate_end = datetime.utcnow()
                 duration_ms = int((gate_end - gate_start).total_seconds() * 1000)
-                logger.error(f"Error running gate '{gate.name}': {e}", exc_info=True)
+                logger.error(f"Error running gate '{gate.name}': {e}", exc_info=True, extra={"gate": gate.name, **self.context})
                 results.append(GateResult(
                     gate_name=gate.name,
                     status=QualityStatus.FAIL,

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 from ..base import QualityGate, QualityStatus, Severity, GateResult
+from src.utils.audio_cache import audio_cache
 
 logger = logging.getLogger(__name__)
 
@@ -50,15 +51,6 @@ class AudioFormatGate(QualityGate):
         Args:
             artifact: Path/dict/str referencing the audio file.
         """
-        try:
-            import soundfile as sf
-        except ImportError:
-            logger.error("soundfile library not installed. Install with: pip install soundfile")
-            return self._create_result(
-                QualityStatus.FAIL,
-                "soundfile library not available",
-                {"error": "ImportError: soundfile"}
-            )
         # Resolve audio path from artifact
         audio_path = _extract_audio_path(artifact)
 
@@ -66,61 +58,70 @@ class AudioFormatGate(QualityGate):
             return self._create_result(
                 QualityStatus.FAIL,
                 f"Audio file not found: {audio_path or artifact}",
-                {"path": str(audio_path or artifact)}
+                {"path": str(audio_path or artifact), "code": "Q_ERR_AUDIO_NOT_FOUND"}
             )
 
         try:
-            # Read audio file metadata
-            info = sf.info(audio_path)
-
-            # Validate sample rate
-            if info.samplerate < self.min_sample_rate:
+            meta = audio_cache.get_metadata(audio_path)
+            if not meta:
                 return self._create_result(
                     QualityStatus.FAIL,
-                    f"Sample rate too low: {info.samplerate}Hz (minimum: {self.min_sample_rate}Hz)",
+                    "Unable to read audio metadata",
+                    {"path": str(audio_path), "code": "Q_ERR_AUDIO_META"}
+                )
+
+            # Validate sample rate
+            if meta['sample_rate'] < self.min_sample_rate:
+                return self._create_result(
+                    QualityStatus.FAIL,
+                    f"Sample rate too low: {meta['sample_rate']}Hz (minimum: {self.min_sample_rate}Hz)",
                     {
-                        "sample_rate": info.samplerate,
+                        "sample_rate": meta['sample_rate'],
                         "min_sample_rate": self.min_sample_rate,
-                        "channels": info.channels,
-                        "duration": info.duration,
-                        "format": info.format
+                        "channels": meta['channels'],
+                        "duration": meta['duration'],
+                        "format": meta.get('format'),
+                        "code": "Q_ERR_SR_TOO_LOW"
                     }
                 )
 
             # Validate channels (1-2)
-            if info.channels < 1 or info.channels > 2:
+            if meta['channels'] < 1 or meta['channels'] > 2:
                 return self._create_result(
                     QualityStatus.FAIL,
-                    f"Invalid channel count: {info.channels} (expected: 1-2)",
+                    f"Invalid channel count: {meta['channels']} (expected: 1-2)",
                     {
-                        "channels": info.channels,
-                        "sample_rate": info.samplerate,
-                        "duration": info.duration
+                        "channels": meta['channels'],
+                        "sample_rate": meta['sample_rate'],
+                        "duration": meta['duration'],
+                        "code": "Q_ERR_BAD_CHANNELS"
                     }
                 )
 
             # Validate duration
-            if info.duration <= 0:
+            if meta['duration'] <= 0:
                 return self._create_result(
                     QualityStatus.FAIL,
-                    f"Invalid duration: {info.duration}s",
+                    f"Invalid duration: {meta['duration']}s",
                     {
-                        "duration": info.duration,
-                        "sample_rate": info.samplerate,
-                        "channels": info.channels
+                        "duration": meta['duration'],
+                        "sample_rate": meta['sample_rate'],
+                        "channels": meta['channels'],
+                        "code": "Q_ERR_BAD_DURATION"
                     }
                 )
 
             return self._create_result(
                 QualityStatus.PASS,
-                f"Audio format valid: {info.samplerate}Hz, {info.channels}ch, {info.duration:.2f}s",
+                f"Audio format valid: {meta['sample_rate']}Hz, {meta['channels']}ch, {meta['duration']:.2f}s",
                 {
-                    "sample_rate": info.samplerate,
-                    "channels": info.channels,
-                    "duration": round(info.duration, 2),
-                    "frames": info.frames,
-                    "format": info.format,
-                    "subtype": info.subtype
+                    "sample_rate": meta['sample_rate'],
+                    "channels": meta['channels'],
+                    "duration": round(meta['duration'], 2),
+                    "frames": meta.get('frames'),
+                    "format": meta.get('format'),
+                    "subtype": meta.get('subtype'),
+                    "code": "Q_PASS_AUDIO_FORMAT"
                 }
             )
 
@@ -129,7 +130,7 @@ class AudioFormatGate(QualityGate):
             return self._create_result(
                 QualityStatus.FAIL,
                 f"Failed to read audio file: {str(e)}",
-                {"path": str(audio_path), "error": str(e)}
+                {"path": str(audio_path), "error": str(e), "code": "Q_ERR_AUDIO_IO"}
             )
 
 
@@ -171,9 +172,14 @@ class DurationConsistencyGate(QualityGate):
             )
 
         try:
-            import soundfile as sf
-            info = sf.info(audio_path)
-            duration = info.duration
+            meta = audio_cache.get_metadata(audio_path)
+            if not meta:
+                return self._create_result(
+                    QualityStatus.FAIL,
+                    "Unable to read audio metadata",
+                    {"path": str(audio_path), "code": "Q_ERR_AUDIO_META"}
+                )
+            duration = meta['duration']
 
             # Calculate words per second
             words_per_second = word_count / duration if duration > 0 else 0
@@ -214,18 +220,12 @@ class DurationConsistencyGate(QualityGate):
                 }
             )
 
-        except ImportError:
-            return self._create_result(
-                QualityStatus.FAIL,
-                "soundfile library not available",
-                {"error": "ImportError: soundfile"}
-            )
         except Exception as e:
             logger.error(f"Error checking duration consistency: {e}")
             return self._create_result(
                 QualityStatus.FAIL,
                 f"Failed to check duration: {str(e)}",
-                {"error": str(e)}
+                {"error": str(e), "code": "Q_ERR_DURATION_CHECK"}
             )
 
 
@@ -258,14 +258,13 @@ class SilenceDetectionGate(QualityGate):
             artifact: Path/dict/str referencing the audio file.
         """
         try:
-            from pydub import AudioSegment
             from pydub.silence import detect_leading_silence
         except ImportError:
             logger.warning("pydub library not installed. Install with: pip install pydub")
             return self._create_result(
                 QualityStatus.WARN,
                 "pydub library not available, skipping silence detection",
-                {"error": "ImportError: pydub"}
+                {"error": "ImportError: pydub", "code": "Q_WARN_PYDUB_IMPORT"}
             )
         # Resolve audio path from artifact
         audio_path = _extract_audio_path(artifact)
@@ -274,12 +273,18 @@ class SilenceDetectionGate(QualityGate):
             return self._create_result(
                 QualityStatus.FAIL,
                 f"Audio file not found: {audio_path or artifact}",
-                {"path": str(audio_path or artifact)}
+                {"path": str(audio_path or artifact), "code": "Q_ERR_AUDIO_NOT_FOUND"}
             )
 
         try:
-            # Load audio
-            audio = AudioSegment.from_file(audio_path)
+            # Load audio via cache
+            audio = audio_cache.get_segment(audio_path)
+            if audio is None:
+                return self._create_result(
+                    QualityStatus.WARN,
+                    "Unable to decode audio segment, skipping silence detection",
+                    {"path": str(audio_path), "code": "Q_WARN_SEGMENT_MISSING"}
+                )
 
             # Detect leading silence
             leading_silence = detect_leading_silence(
@@ -357,7 +362,7 @@ class SilenceDetectionGate(QualityGate):
             return self._create_result(
                 QualityStatus.WARN,
                 f"Failed to detect silence: {str(e)}",
-                {"path": str(audio_path), "error": str(e)}
+                {"path": str(audio_path), "error": str(e), "code": "Q_WARN_SILENCE_CHECK"}
             )
 
 
@@ -375,6 +380,7 @@ class LoudnessCheckGate(QualityGate):
         severity: Severity = Severity.WARN
     ):
         super().__init__("loudness_check", severity)
+        # pydub é usado no método check; aqui apenas guardamos thresholds
         self.target_loudness_dbfs_min = target_loudness_dbfs_min
         self.target_loudness_dbfs_max = target_loudness_dbfs_max
 
@@ -392,7 +398,7 @@ class LoudnessCheckGate(QualityGate):
             return self._create_result(
                 QualityStatus.WARN,
                 "pydub library not available, skipping loudness check",
-                {"error": "ImportError: pydub"}
+                {"error": "ImportError: pydub", "code": "Q_WARN_PYDUB_IMPORT"}
             )
         # Resolve audio path from artifact
         audio_path = _extract_audio_path(artifact)
@@ -401,12 +407,17 @@ class LoudnessCheckGate(QualityGate):
             return self._create_result(
                 QualityStatus.FAIL,
                 f"Audio file not found: {audio_path or artifact}",
-                {"path": str(audio_path or artifact)}
+                {"path": str(audio_path or artifact), "code": "Q_ERR_AUDIO_NOT_FOUND"}
             )
 
         try:
-            # Load audio
-            audio = AudioSegment.from_file(audio_path)
+            audio = audio_cache.get_segment(audio_path)
+            if audio is None:
+                return self._create_result(
+                    QualityStatus.WARN,
+                    "Unable to decode audio segment, skipping loudness check",
+                    {"path": str(audio_path), "code": "Q_WARN_SEGMENT_MISSING"}
+                )
 
             # Get loudness in dBFS (decibels relative to full scale)
             loudness_dbfs = audio.dBFS
@@ -441,7 +452,8 @@ class LoudnessCheckGate(QualityGate):
                 {
                     "loudness_dbfs": round(loudness_dbfs, 2),
                     "target_min_dbfs": self.target_loudness_dbfs_min,
-                    "target_max_dbfs": self.target_loudness_dbfs_max
+                    "target_max_dbfs": self.target_loudness_dbfs_max,
+                    "code": "Q_PASS_LOUDNESS"
                 }
             )
 
@@ -450,5 +462,5 @@ class LoudnessCheckGate(QualityGate):
             return self._create_result(
                 QualityStatus.WARN,
                 f"Failed to check loudness: {str(e)}",
-                {"path": str(audio_path), "error": str(e)}
+                {"path": str(audio_path), "error": str(e), "code": "Q_WARN_LOUDNESS_CHECK"}
             )

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.pipeline import config
 from src.pipeline.exceptions import TTSClientError
+from src.utils.metrics_exporter import update_http_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +45,12 @@ class TTSClient:
         """
         try:
             voices_url = f"{self.base_url}/voices"
+            import time
+            t0 = time.time()
             response = self.session.get(voices_url, timeout=10)
             response.raise_for_status()
+            duration_ms = int((time.time() - t0) * 1000)
+            update_http_metrics(config.OUTPUT_DIR / 'quality_gates' / 'metrics', 'tts', 'GET', response.status_code, duration_ms)
             logger.info(f"✅ Successfully connected to TTS server at {self.base_url}")
         except requests.exceptions.RequestException as e:
             raise TTSClientError(f"Failed to connect to TTS server at {self.base_url}. Error: {e}")
@@ -70,10 +75,20 @@ class TTSClient:
             "noise_w_scale": noise_w_scale,
         }
         try:
+            import time
+            t0 = time.time()
             response = self.session.post(self.base_url, json=payload, timeout=180)
             response.raise_for_status()
+            duration_ms = int((time.time() - t0) * 1000)
+            update_http_metrics(config.OUTPUT_DIR / 'quality_gates' / 'metrics', 'tts', 'POST', response.status_code, duration_ms)
             logger.info(f"Audio synthesized for text snippet (voice: {voice}).")
             return response.content
         except requests.exceptions.RequestException as e:
+            try:
+                duration_ms = int((time.time() - t0) * 1000)
+                status = getattr(e.response, 'status_code', 'error') if hasattr(e, 'response') else 'error'
+                update_http_metrics(config.OUTPUT_DIR / 'quality_gates' / 'metrics', 'tts', 'POST', status, duration_ms)
+            except Exception:
+                pass
             logger.error(f"TTS synthesis failed: {e}")
             return None
