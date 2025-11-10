@@ -6,11 +6,11 @@ include .env
 .PHONY: help
 
 # Configurações
-INPUT_FILE ?= input/topics.txt
-COMPOSE_TTS := docker-compose.tts.yml
-COMPOSE_MANAGER := docker-compose.manager.yml
-COMPOSE_IMAGES := docker-compose.images.yml
-COMPOSE_OLLAMA := docker-compose.ollama.yml
+INPUT_FILE ?= data/input/topics.txt
+COMPOSE_TTS := deploy/docker-compose.tts.yml
+COMPOSE_MANAGER := deploy/docker-compose.manager.yml
+COMPOSE_IMAGES := deploy/docker-compose.images.yml
+COMPOSE_OLLAMA := deploy/docker-compose.ollama.yml
 
 # ============================================
 # HELP
@@ -156,13 +156,13 @@ monitor: ## MONITOR: Monitora outputs gerados
 	@echo "📊 Monitorando outputs..."
 	@echo ""
 	@echo "═══ SCRIPTS ═══"
-	@ls -lh output/scripts/*.txt 2>/dev/null | tail -n +2 | awk '{print $$9, "(" $$5 ")"}' || echo "  Nenhum script"
+	@ls -lh data/output/scripts/*.txt 2>/dev/null | tail -n +2 | awk '{print $$9, "(" $$5 ")"}' || echo "  Nenhum script"
 	@echo ""
 	@echo "═══ ÁUDIOS ═══"
-	@ls -lh output/audio/*.wav 2>/dev/null | tail -n +2 | awk '{print $$9, "(" $$5 ")"}' || echo "  Nenhum áudio"
+	@ls -lh data/output/audio/*.wav 2>/dev/null | tail -n +2 | awk '{print $$9, "(" $$5 ")"}' || echo "  Nenhum áudio"
 	@echo ""
 	@echo "═══ IMAGENS ═══"
-	@ls -lh output/images/*.png 2>/dev/null | tail -n +2 | awk '{print $$9, "(" $$5 ")"}' || echo "  Nenhuma imagem"
+	@ls -lh data/output/images/*.png 2>/dev/null | tail -n +2 | awk '{print $$9, "(" $$5 ")"}' || echo "  Nenhuma imagem"
 	@echo ""
 	@echo "═══ CONTAINERS ═══"
 	@docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(piper-tts|ollama|pipeline-manager)" || echo "  Nenhum container ativo"

@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Script",
+  "description": "Schema for generated video scripts",
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "description": "The topic of the script"
+    },
+    "content": {
+      "type": "string",
+      "description": "The actual script content"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "LLM model used to generate the script"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Generation timestamp"
+        },
+        "word_count": {
+          "type": "integer",
+          "description": "Number of words in the script"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "description": "Time taken to generate the script"
+        }
+      },
+      "required": ["model", "timestamp"]
+    }
+  },
+  "required": ["topic", "content", "metadata"]
+}
