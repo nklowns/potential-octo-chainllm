@@ -4,6 +4,8 @@ import logging
 from typing import Any, List, Optional, Dict
 from datetime import datetime
 from .base import GateResult, QualityGate, QualityStatus
+from src.utils.metrics_exporter import update_gate_runtime
+from src.pipeline import config as pipeline_config
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +53,20 @@ class QualityGateRunner:
                 # Inject timing into details
                 result.details.setdefault('metrics', {})
                 result.details['metrics']['duration_ms'] = duration_ms
+                # Emit gate runtime metrics
+                try:
+                    metrics_dir = pipeline_config.OUTPUT_DIR / 'quality_gates' / 'metrics'
+                    update_gate_runtime(
+                        metrics_dir,
+                        gate=gate.name,
+                        status=result.status.value,
+                        duration_ms=duration_ms,
+                        artifact_type=self.context.get('artifact_type'),
+                        run_id=self.context.get('run_id')
+                    )
+                except Exception:
+                    # Metrics must never break pipeline
+                    pass
                 logger.info(
                     f"Gate completed: {gate.name} status={result.status.value} severity={result.severity.value} duration_ms={duration_ms}",
                     extra={"gate": gate.name, "duration_ms": duration_ms, **self.context}

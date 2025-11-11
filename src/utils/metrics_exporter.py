@@ -111,3 +111,101 @@ def update_http_metrics(metrics_dir: Path, service: str, method: str, status: st
         except Exception:
             pass
         return metrics_path
+
+
+# ------------------------- Gate runtime metrics -------------------------
+_gate_lock = threading.Lock()
+_gate_runs: Dict[str, int] = {}
+_gate_duration_sum: Dict[str, float] = {}
+_gate_duration_count: Dict[str, int] = {}
+
+
+def update_gate_runtime(metrics_dir: Path, gate: str, status: str, duration_ms: int,
+                        artifact_type: Optional[str] = None, run_id: Optional[str] = None) -> Path:
+    """Update gate runtime metrics and write textfile atomically.
+
+    Metrics:
+      - quality_gate_runs_total{gate,status,artifact_type,run_id}
+      - quality_gate_run_duration_ms_sum{gate,artifact_type}
+      - quality_gate_run_duration_ms_count{gate,artifact_type}
+    """
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    key_req = f"{gate}|{status}|{artifact_type or ''}|{run_id or ''}"
+    key_lat = f"{gate}|{artifact_type or ''}"
+    with _gate_lock:
+        _gate_runs[key_req] = _gate_runs.get(key_req, 0) + 1
+        _gate_duration_sum[key_lat] = _gate_duration_sum.get(key_lat, 0.0) + float(duration_ms)
+        _gate_duration_count[key_lat] = _gate_duration_count.get(key_lat, 0) + 1
+
+        lines = []
+        lines.append('# TYPE quality_gate_runs_total counter')
+        lines.append('# TYPE quality_gate_run_duration_ms_sum counter')
+        lines.append('# TYPE quality_gate_run_duration_ms_count counter')
+        for k, v in _gate_runs.items():
+            g, st, art, rid = k.split('|', 3)
+            label_str = _fmt_labels({"gate": g, "status": st, "artifact_type": art or None, "run_id": rid or None})
+            lines.append(f'quality_gate_runs_total{label_str} {v}')
+        for k, v in _gate_duration_sum.items():
+            g, art = k.split('|', 1)
+            label_str = _fmt_labels({"gate": g, "artifact_type": art or None})
+            lines.append(f'quality_gate_run_duration_ms_sum{label_str} {int(v)}')
+        for k, v in _gate_duration_count.items():
+            g, art = k.split('|', 1)
+            label_str = _fmt_labels({"gate": g, "artifact_type": art or None})
+            lines.append(f'quality_gate_run_duration_ms_count{label_str} {v}')
+
+        content = "\n".join(lines) + "\n"
+        metrics_path = metrics_dir / 'gate_runtime_metrics.prom'
+        try:
+            with tempfile.NamedTemporaryFile('w', encoding='utf-8', delete=False, dir=metrics_dir, suffix='.tmp') as tf:
+                tf.write(content)
+                tmp = tf.name
+            Path(tmp).replace(metrics_path)
+        except Exception:
+            pass
+        return metrics_path
+
+
+# ------------------------- Audio cache metrics -------------------------
+_cache_lock = threading.Lock()
+_cache_hits: Dict[str, int] = {"meta": 0, "segment": 0}
+_cache_misses: Dict[str, int] = {"meta": 0, "segment": 0}
+_cache_sizes: Dict[str, int] = {"meta": 0, "segment": 0}
+
+
+def update_cache_metric(metrics_dir: Path, kind: str, hit: bool):
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    with _cache_lock:
+        if hit:
+            _cache_hits[kind] = _cache_hits.get(kind, 0) + 1
+        else:
+            _cache_misses[kind] = _cache_misses.get(kind, 0) + 1
+        _write_cache_metrics(metrics_dir)
+
+
+def update_cache_sizes(metrics_dir: Path, meta_count: int, segment_count: int):
+    with _cache_lock:
+        _cache_sizes['meta'] = meta_count
+        _cache_sizes['segment'] = segment_count
+        _write_cache_metrics(metrics_dir)
+
+
+def _write_cache_metrics(metrics_dir: Path):
+    lines = []
+    lines.append('# TYPE audio_cache_hits_total counter')
+    lines.append('# TYPE audio_cache_misses_total counter')
+    lines.append('# TYPE audio_cache_entries gauge')
+    for kind in ("meta", "segment"):
+        label = _fmt_labels({"kind": kind})
+        lines.append(f'audio_cache_hits_total{label} {_cache_hits.get(kind, 0)}')
+        lines.append(f'audio_cache_misses_total{label} {_cache_misses.get(kind, 0)}')
+        lines.append(f'audio_cache_entries{label} {_cache_sizes.get(kind, 0)}')
+    content = "\n".join(lines) + "\n"
+    metrics_path = metrics_dir / 'cache_metrics.prom'
+    try:
+        with tempfile.NamedTemporaryFile('w', encoding='utf-8', delete=False, dir=metrics_dir, suffix='.tmp') as tf:
+            tf.write(content)
+            tmp = tf.name
+        Path(tmp).replace(metrics_path)
+    except Exception:
+        pass

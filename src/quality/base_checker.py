@@ -11,6 +11,8 @@ from datetime import datetime
 from .base import QualityStatus
 from .config import QualityConfig
 from .manifest import RunManifest
+from src.application.repositories.manifest_repository import RunManifestRepository
+from src.domain.entities import QualityGateOutcome, Script, AudioArtifact
 from .reporters import QualityReporter
 from .factory import GateFactory
 from src.pipeline import config as pipeline_config
@@ -52,16 +54,17 @@ class BaseQualityChecker(ABC):
         self.quarantine_dir = pipeline_config.OUTPUT_DIR / "quality_gates" / "quarantine" / artifact_type
         self.manifest_path = pipeline_config.OUTPUT_DIR / "quality_gates" / "run_manifest.json"
 
-        # Initialize manifest and reporter
+        # Initialize manifest and repository adapter (keep direct manifest for legacy access)
         self.manifest = RunManifest(self.manifest_path)
-        # Persist a config snapshot for reproducibility (idempotent per run)
+        self.manifest_repo = RunManifestRepository(self.manifest)
+        # Persist a config snapshot (repository abstraction)
         try:
-            self.manifest.save_config_snapshot(
+            self.manifest_repo.snapshot_config(
                 self.quality_config.to_dict(),
                 source_path=str(self.quality_config.source_path)
             )
         except Exception as e:
-            logger.warning(f"Failed to write config snapshot: {e}")
+            logger.warning(f"Failed to snapshot config via repository: {e}")
         self.reporter = QualityReporter(self.reports_dir, self.quarantine_dir)
 
         # Setup gates
@@ -147,13 +150,60 @@ class BaseQualityChecker(ABC):
                     reason="Critical quality gate failure"
                 )
 
-            # Create manifest entry
+            # Domain mapping of gate outcomes for repository
+            gate_outcomes: List[QualityGateOutcome] = []
+            for r in results:
+                duration_ms = r.details.get('metrics', {}).get('duration_ms', 0)
+                gate_outcomes.append(
+                    QualityGateOutcome(
+                        gate_name=r.gate_name,
+                        status=r.status.value,
+                        severity=r.severity.value,
+                        message=r.message,
+                        details=r.details,
+                        duration_ms=duration_ms
+                    )
+                )
+
+            # Create manifest entry (legacy path) and update
             manifest_entry = self._create_manifest_entry(
                 artifact_path, results, overall_status, metadata
             )
-
-            # Update manifest
             self._update_manifest(manifest_entry)
+
+            # Repository write (new abstraction) - best effort
+            try:
+                if self.artifact_type == 'scripts':
+                    script_topic = metadata.get('topic', 'Unknown')
+                    # Attempt to get content for domain entity
+                    content = ''
+                    if isinstance(artifact_data, dict):
+                        content = artifact_data.get('content', '')
+                    script_entity = Script.from_content(
+                        script_id=artifact_id,
+                        topic=script_topic,
+                        content=content
+                    )
+                    self.manifest_repo.add_script(
+                        script=script_entity,
+                        quality_status=overall_status.value,
+                        ready_for_audio=(overall_status != QualityStatus.FAIL),
+                        gate_outcomes=gate_outcomes
+                    )
+                elif self.artifact_type == 'audio':
+                    audio_entity = AudioArtifact(
+                        audio_id=artifact_id,
+                        script_id=artifact_id,  # assumes same id; adjust if different
+                        path=str(artifact_path),
+                        duration=None
+                    )
+                    self.manifest_repo.add_audio(
+                        audio=audio_entity,
+                        quality_status=overall_status.value,
+                        gate_outcomes=gate_outcomes
+                    )
+            except Exception as e:
+                logger.warning(f"Repository write failed (non-fatal): {e}", extra={"artifact_id": artifact_id})
 
             # Calculate timing
             end_time = datetime.utcnow()
@@ -170,9 +220,45 @@ class BaseQualityChecker(ABC):
         except Exception as e:
             logger.error(f"Error checking {self.artifact_type} {artifact_path}: {e}", exc_info=True)
 
-            # Create error entry
+            # Create error entry (legacy) & update
             error_entry = self._create_error_entry(artifact_path, str(e))
             self._update_manifest(error_entry)
+            # Repository error recording attempt (best-effort)
+            try:
+                gate_outcome = QualityGateOutcome(
+                    gate_name='pipeline',
+                    status='error',
+                    severity='error',
+                    message=str(e),
+                    details={'exception': str(e)},
+                    duration_ms=0
+                )
+                if self.artifact_type == 'scripts':
+                    script_entity = Script.from_content(
+                        script_id=artifact_id,
+                        topic='Unknown',
+                        content=''
+                    )
+                    self.manifest_repo.add_script(
+                        script=script_entity,
+                        quality_status='error',
+                        ready_for_audio=False,
+                        gate_outcomes=[gate_outcome]
+                    )
+                elif self.artifact_type == 'audio':
+                    audio_entity = AudioArtifact(
+                        audio_id=artifact_id,
+                        script_id=artifact_id,
+                        path=str(artifact_path),
+                        duration=None
+                    )
+                    self.manifest_repo.add_audio(
+                        audio=audio_entity,
+                        quality_status='error',
+                        gate_outcomes=[gate_outcome]
+                    )
+            except Exception:
+                pass
 
             return {
                 "artifact_id": artifact_id,
