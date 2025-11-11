@@ -1,5 +1,3 @@
-version: "3.9"
-
 networks:
   proxy_net:
     external: true
@@ -13,8 +11,6 @@ services:
     command: --xformers --enable-api --nowebui --listen
     env_file:
       - .env
-    environment:
-      - TZ=${TZ:-UTC}
     networks:
       - proxy_net
     deploy:

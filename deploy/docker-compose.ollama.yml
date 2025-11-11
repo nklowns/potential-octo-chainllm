@@ -1,4 +1,3 @@
-# docker-compose.ollama.yml
 networks:
   proxy_net:
     external: true
