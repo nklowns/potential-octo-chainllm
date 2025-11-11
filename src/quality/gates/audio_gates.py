@@ -39,9 +39,10 @@ def _extract_audio_path(artifact: Any) -> Optional[Path]:
 
 class AudioFormatGate(QualityGate):
     """Validates audio file format and basic properties."""
+    GATE_NAME = "audio_format"
 
     def __init__(self, min_sample_rate: int = 16000, severity: Severity = Severity.ERROR):
-        super().__init__("audio_format", severity)
+        super().__init__(AudioFormatGate.GATE_NAME, severity)
         self.min_sample_rate = min_sample_rate
 
     def check(self, artifact: Any) -> GateResult:
@@ -136,9 +137,10 @@ class AudioFormatGate(QualityGate):
 
 class DurationConsistencyGate(QualityGate):
     """Validates audio duration is consistent with script word count."""
+    GATE_NAME = "duration_consistency"
 
     def __init__(self, severity: Severity = Severity.ERROR):
-        super().__init__("duration_consistency", severity)
+        super().__init__(DurationConsistencyGate.GATE_NAME, severity)
         # Typical reading speed: 2-3 words per second
         # We'll be lenient: 1-5 words per second
         self.min_words_per_second = 1.0
@@ -235,6 +237,7 @@ class SilenceDetectionGate(QualityGate):
 
     Uses amplitude-based detection to identify silent regions.
     """
+    GATE_NAME = "silence_detection"
 
     def __init__(
         self,
@@ -244,7 +247,7 @@ class SilenceDetectionGate(QualityGate):
         silence_threshold_db: float = -40.0,
         severity: Severity = Severity.WARN
     ):
-        super().__init__("silence_detection", severity)
+        super().__init__(SilenceDetectionGate.GATE_NAME, severity)
         self.max_leading_silence_ms = max_leading_silence_ms
         self.max_trailing_silence_ms = max_trailing_silence_ms
         self.max_silence_proportion = max_silence_proportion
@@ -372,6 +375,7 @@ class LoudnessCheckGate(QualityGate):
 
     Uses RMS (root mean square) to measure perceived loudness.
     """
+    GATE_NAME = "loudness_check"
 
     def __init__(
         self,
@@ -379,7 +383,7 @@ class LoudnessCheckGate(QualityGate):
         target_loudness_dbfs_max: float = -10.0,
         severity: Severity = Severity.WARN
     ):
-        super().__init__("loudness_check", severity)
+        super().__init__(LoudnessCheckGate.GATE_NAME, severity)
         # pydub é usado no método check; aqui apenas guardamos thresholds
         self.target_loudness_dbfs_min = target_loudness_dbfs_min
         self.target_loudness_dbfs_max = target_loudness_dbfs_max

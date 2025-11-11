@@ -128,6 +128,8 @@ class RunManifest:
         return {
             "run_id": run_id,
             "config_hash": "",
+            "config_snapshot_path": "",
+            "config_source_path": "",
             "created_at": datetime.utcnow().isoformat() + "Z",
             "updated_at": datetime.utcnow().isoformat() + "Z",
             "scripts": [],
@@ -143,6 +145,65 @@ class RunManifest:
         """Set the configuration hash for this run."""
         self._data["config_hash"] = config_hash
         self._save()
+
+    def save_config_snapshot(self, config_dict: Dict[str, Any], source_path: Optional[str] = None) -> str:
+        """Persist a normalized snapshot of the quality config for this run and update manifest.
+
+        This writes a JSON snapshot next to the per-run manifest file and records both the
+        config hash and the snapshot path in the manifest. If an identical snapshot already
+        exists for this run, it will not be rewritten.
+
+        Args:
+            config_dict: The configuration dictionary to snapshot.
+            source_path: Optional original source path for the config file (YAML/JSON).
+
+        Returns:
+            The absolute path to the snapshot file as a string.
+        """
+        # Normalize and compute hash first
+        cfg_hash = compute_config_hash(config_dict)
+        snapshot_dir = self.manifest_path.parent
+        run_id = self._data.get("run_id") or self._generate_run_id()
+        snapshot_path = snapshot_dir / f"{run_id}_quality_config.json"
+
+        # Write atomically if needed, with locking for process/thread safety
+        with self._lock, self._file_lock():
+            # Reload to ensure latest state
+            latest = self._load_or_create()
+            self._data = latest
+
+            # If already set and file exists with same hash, reuse
+            if (
+                self._data.get("config_hash") == cfg_hash
+                and self._data.get("config_snapshot_path")
+                and Path(self._data["config_snapshot_path"]).exists()
+            ):
+                return self._data["config_snapshot_path"]
+
+            # Serialize config deterministically (sorted keys)
+            tmp_content = json.dumps(config_dict, sort_keys=True, ensure_ascii=False, indent=2)
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode='w', encoding='utf-8', dir=snapshot_dir, delete=False, suffix='.tmp'
+                ) as tf:
+                    tf.write(tmp_content)
+                    tmp_path = Path(tf.name)
+                tmp_path.replace(snapshot_path)
+            finally:
+                try:
+                    # Ensure tmp file cleanup if replace failed
+                    if 'tmp_path' in locals() and tmp_path.exists():
+                        tmp_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+            # Update manifest metadata
+            self._data["config_hash"] = cfg_hash
+            self._data["config_snapshot_path"] = str(snapshot_path)
+            if source_path:
+                self._data["config_source_path"] = str(source_path)
+            self._save_no_lock()
+            return str(snapshot_path)
 
     def add_script(self, entry: ScriptEntry):
         """Add or update a script entry to the manifest (thread/process-safe)."""

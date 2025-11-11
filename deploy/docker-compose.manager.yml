@@ -48,7 +48,7 @@ services:
       - ../config:/home/appuser/app/config:ro
     env_file:
       - ../.env
-    command: pytest -q
+    command: pytest -q --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-report=html:coverage_html
 
   # Serviço para gerar imagens
   image-generator:

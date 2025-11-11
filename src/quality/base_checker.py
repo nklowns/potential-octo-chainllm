@@ -42,6 +42,7 @@ class BaseQualityChecker(ABC):
         # Load quality configuration
         quality_config_path = pipeline_config.CONFIG_DIR / "quality.json"
         self.quality_config = QualityConfig(quality_config_path)
+        # Defer manifest init until after we know config (manifest wants snapshot)
 
         # Setup gate factory
         self.gate_factory = GateFactory(self.quality_config, pipeline_config.BASE_DIR)
@@ -53,6 +54,14 @@ class BaseQualityChecker(ABC):
 
         # Initialize manifest and reporter
         self.manifest = RunManifest(self.manifest_path)
+        # Persist a config snapshot for reproducibility (idempotent per run)
+        try:
+            self.manifest.save_config_snapshot(
+                self.quality_config.to_dict(),
+                source_path=str(self.quality_config.source_path)
+            )
+        except Exception as e:
+            logger.warning(f"Failed to write config snapshot: {e}")
         self.reporter = QualityReporter(self.reports_dir, self.quarantine_dir)
 
         # Setup gates

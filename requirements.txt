@@ -13,4 +13,6 @@ rfc3339-validator>=0.1.4  # Optional: Strict date-time format validation for JSO
 pydub>=0.25.1           # Audio analysis (silence detection, loudness)
 numpy>=1.24.0           # Audio signal processing
 pytest>=7.4.0           # Test runner
+pytest-cov>=4.1.0       # Coverage reports
+PyYAML>=6.0             # YAML config loading for profiles
 

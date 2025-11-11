@@ -66,7 +66,7 @@ _http_duration_sum: Dict[str, float] = {}
 _http_duration_count: Dict[str, int] = {}
 
 
-def update_http_metrics(metrics_dir: Path, service: str, method: str, status: str | int, duration_ms: int, run_id: Optional[str] = None):
+def update_http_metrics(metrics_dir: Path, service: str, method: str, status: str | int, duration_ms: int, run_id: Optional[str] = None) -> Path:
     """Update HTTP metrics counters and write textfile atomically.
 
     Metrics:
@@ -110,3 +110,4 @@ def update_http_metrics(metrics_dir: Path, service: str, method: str, status: st
             Path(tmp).replace(metrics_path)
         except Exception:
             pass
+        return metrics_path

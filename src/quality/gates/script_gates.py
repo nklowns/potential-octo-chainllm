@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 
 class SchemaValidationGate(QualityGate):
     """Validates script structure against JSON schema."""
+    GATE_NAME = "schema_validation"
 
     def __init__(self, schema_path: Path, severity: Severity = Severity.ERROR):
-        super().__init__("schema_validation", severity)
+        super().__init__(SchemaValidationGate.GATE_NAME, severity)
         self.schema_path = schema_path
         self._schema = None
         self._validator = None
@@ -67,9 +68,10 @@ class SchemaValidationGate(QualityGate):
 
 class WordBoundsGate(QualityGate):
     """Validates script word count is within bounds."""
+    GATE_NAME = "word_bounds"
 
     def __init__(self, min_words: int, max_words: int, severity: Severity = Severity.ERROR):
-        super().__init__("word_bounds", severity)
+        super().__init__(WordBoundsGate.GATE_NAME, severity)
         self.min_words = min_words
         self.max_words = max_words
 
@@ -120,9 +122,10 @@ class WordBoundsGate(QualityGate):
 
 class ForbiddenTermsGate(QualityGate):
     """Checks for forbidden terms in script content."""
+    GATE_NAME = "forbidden_terms"
 
     def __init__(self, forbidden_terms_file: Path = None, forbidden_terms: List[str] = None, severity: Severity = Severity.ERROR):
-        super().__init__("forbidden_terms", severity)
+        super().__init__(ForbiddenTermsGate.GATE_NAME, severity)
 
         # Load from file if provided, otherwise use list
         if forbidden_terms_file and forbidden_terms_file.exists():
@@ -173,9 +176,10 @@ class ForbiddenTermsGate(QualityGate):
 
 class LanguageGate(QualityGate):
     """Validates script language (basic check)."""
+    GATE_NAME = "language"
 
     def __init__(self, expected_language: str = "pt-BR", severity: Severity = Severity.WARN):
-        super().__init__("language", severity)
+        super().__init__(LanguageGate.GATE_NAME, severity)
         self.expected_language = expected_language
 
     def check(self, artifact: Dict[str, Any]) -> GateResult:
