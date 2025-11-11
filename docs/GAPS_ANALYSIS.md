@@ -206,7 +206,6 @@ from pydantic_settings import BaseSettings
 class PipelineSettings(BaseSettings):
     ollama_base_url: str
     ollama_model: str = "gemma3:4b"
-    tts_base_url: str
     output_scripts: Path
 
     class Config:

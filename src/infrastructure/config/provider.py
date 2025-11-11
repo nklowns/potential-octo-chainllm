@@ -33,7 +33,7 @@ class ConfigProvider:
         qc = self._quality
         script_cfg = qc.script_config
         audio_cfg = qc.audio_config
-        # Determina base_url do Piper (ou vazio se não definido) a partir do voices.json (v2 com backends)
+        # Determina base_url do Piper (ou vazio se não definido) a partir de voices.json -> available_backends.piper
         backends = TTSBackendsConfig()
         piper_backend = backends.get_backend('piper')
         tts_base_url = piper_backend.base_url if piper_backend else ''

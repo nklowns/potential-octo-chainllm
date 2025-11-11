@@ -34,7 +34,8 @@
       "gender": "male",
       "quality": "medium",
       "params": {
-        "length_scale": 0.95
+        "noise_scale": 1.0,
+        "noise_w_scale": 1.0
       },
       "capabilities": {
         "supports_tone": false,

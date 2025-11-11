@@ -22,8 +22,9 @@ class AudioOrchestrator:
         if providers is not None:
             self._providers = providers
         else:
-            # Descobre quais backends estão presentes entre as vozes e instancia apenas os necessários.
-            discovered_backends = {v.get('backend', 'piper') for v in self.registry.voices().values()}
+            # Descobre quais backends estão presentes entre as vozes e instancia apenas os necessários,
+            # usando a API explícita do registro (used_backends) para evitar ambiguidades.
+            discovered_backends = set(self.registry.used_backends())
             base_providers: Dict[str, object] = {}
             if 'piper' in discovered_backends:
                 try:

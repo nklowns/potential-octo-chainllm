@@ -24,28 +24,27 @@ class TTSBackend:
 
 class TTSBackendsConfig:
     def __init__(self, path: Path | None = None, voices_path: Path | None = None):
-        # Fonte de verdade: available_backends em voices.json (v2)
+        # Fonte de verdade única: available_backends em voices.json (v2)
         self.voices_path = voices_path or pipeline_config.VOICES_CONFIG_PATH
-        # "path" legado ignorado por design (sem fallback para tts_backends.json)
-        self._data: Dict[str, Any] = {"backends": {}}
+        # Mantenha o nome alinhado com a chave real do arquivo para evitar ambiguidades
+        self._available_backends: Dict[str, Any] = {}
         self._load()
 
     def _load(self):
-        # Lê voices.json e extrai available_backends (ou 'backends' se presente para compat interna)
+        # Lê voices.json e extrai available_backends. Não há fallback.
         try:
             raw_voices = json.loads(Path(self.voices_path).read_text(encoding='utf-8'))
-            if isinstance(raw_voices, dict):
-                if 'available_backends' in raw_voices:
-                    self._data['backends'] = raw_voices.get('available_backends', {})
-                elif 'backends' in raw_voices:
-                    # Compatibilidade limitada: aceita 'backends' mas preferir available_backends
-                    self._data['backends'] = raw_voices.get('backends', {})
+            if isinstance(raw_voices, dict) and 'available_backends' in raw_voices:
+                self._available_backends = raw_voices.get('available_backends', {}) or {}
+            else:
+                self._available_backends = {}
         except Exception:
-            pass
+            # Em caso de erro de leitura/parse, mantém estrutura vazia; consumidores decidem como proceder
+            self._available_backends = {}
         # Sem fallbacks: se vazio, mantém estrutura vazia; consumidores decidem como proceder
 
     def get_backend(self, name: str) -> TTSBackend | None:
-        cfg = self._data.get('backends', {}).get(name)
+        cfg = self._available_backends.get(name)
         if not cfg:
             return None
         defaults = cfg.get('defaults', {})
@@ -58,3 +57,11 @@ class TTSBackendsConfig:
                 noise_w_scale=float(defaults.get('noise_w_scale', 0.8)),
             ),
         )
+
+    def available_backends(self) -> Dict[str, Any]:
+        """Retorna o dicionário bruto de available_backends do voices.json."""
+        return dict(self._available_backends)
+
+    def list_backends(self) -> list[str]:
+        """Lista os nomes de backends disponíveis no voices.json (chave available_backends)."""
+        return sorted(self._available_backends.keys())

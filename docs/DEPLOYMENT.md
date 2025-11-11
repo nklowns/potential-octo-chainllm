@@ -31,10 +31,10 @@ cp .env.example .env
 nano .env
 ```
 
-**Critical variables**:
+**Critical variables (infra)**:
 - `TRAEFIK_NETWORK=proxy_net` - Docker network name
 - `OLLAMA_BASE_URL` - URL for Ollama service (local or external)
-- `TTS_BASE_URL` - URL for Piper TTS service (local or external)
+- `PIPER_SERVICE_NAME` / `PIPER_PORT` - Identificação e porta do serviço Piper (Traefik / Compose)
 - `DOMAIN_DUCKDNS` - Your domain (if using external services)
 
 ---
@@ -174,9 +174,28 @@ Python para automação de tarefas
 
 Customize the script generation template at `config/prompts/script_template.txt`.
 
-### TTS Voice
+### TTS (Piper) Configuration
 
-Available voices are defined in `config/voices.json`. Default: `pt_BR-faber-medium`
+Voices and backend endpoints are defined centrally in `config/voices.json` (v2):
+
+```jsonc
+{
+    "version": 2,
+    "default_voice": "piper_pt_br",
+    "available_backends": {
+        "piper": {
+            "base_url": "http://piper-tts:5000",
+            "defaults": { "length_scale": 1.0, "noise_scale": 0.667, "noise_w_scale": 0.8 }
+        }
+    },
+    "available_voices": {
+        "piper_pt_br": { "backend": "piper", "model_id": "pt_BR-faber-medium", "params": {} },
+        "piper_pt_br_alt": { "backend": "piper", "model_id": "pt_BR-cadu-medium", "params": { "length_scale": 0.95 } }
+    }
+}
+```
+
+Nenhuma variável `TTS_*` é usada para controlar voz ou parâmetros. Ajuste tudo pelo JSON.
 
 ---
 
