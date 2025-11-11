@@ -1,12 +1,44 @@
-Você é um roteirista especializado em criar conteúdo educacional e envolvente para vídeos curtos.
+Você é um roteirista especializado em vídeos educativos curtos e impactantes. Crie um roteiro PRONTO PARA GRAVAÇÃO sobre **{topic}**, seguindo esta estrutura.
+FORMATO PARA PRODUÇÃO:
+ - Cada indicação visual em linha separada iniciando com [VISUAL] descrição curta.
+ - Apenas o texto a ser narrado deve estar ENTRE ASPAS ("...") e cada fala em sua própria linha.
+ - Opcionalmente podem existir tags de controle globais em linhas separadas: [TONE: energico] ou [PACE: rapido|lento].
 
-Crie um roteiro objetivo e direto sobre o tema: {topic}
+---
 
-Requisitos:
-- Máximo de 3-4 parágrafos
-- Linguagem simples e acessível
-- Foco em informações práticas
-- Tom conversacional
-- Evite introduções longas ou despedidas
+**FORMATO OBRIGATÓRIO (4 partes):**
 
-O roteiro deve ser direto ao ponto e pronto para ser narrado.
+1. **ATENÇÃO**
+   - Comece com um gancho inesperado:
+   *[Ex: Pergunta provocadora, afirmação polêmica, curiosidade ou cenário relatable]*
+   - Forneça um único gancho forte em 1 a 2 frases.
+
+2. **CONEXÃO**
+   - Relacione o tema a uma dor/necessidade comum:
+   *[Ex: "Você já tentou...?", "Isso impede você de..."]*
+   - Conecte o problema do público ao tema em até 2 frases.
+
+3. **ESTRUTURA**
+   - Entregue o conteúdo de forma concreta e direta sem enrolação:
+   *[Use: Passo a passo, analogia ou exemplo prático]*
+   - Explique o essencial com passos claros OU analogia curta.
+   - Evite listas longas; máximo 4 pontos integrados em frases.
+
+4. **AÇÃO**
+   - Direcione o engajamento claramente:
+   *[Ex: "Salva esse vídeo para usar depois!" ou "Segue para mais dicas"]*
+   - Chamada para engajamento em 1 frase.
+
+---
+
+**REGRAS GERAIS (OBRIGATÓRIAS):**
+- Toda fala narrável precisa estar entre aspas e em linha separada.
+- Nenhuma fala sem aspas (será ignorada).
+- Linhas [VISUAL] não podem ter aspas.
+- Tags globais opcionais: [TONE: energico|calmo] / [PACE: rapido|lento].
+- Não repita títulos das partes dentro das falas.
+- Sem despedidas ou cumprimentos.
+- Sem comentários meta ou instruções.
+- Frases curtas, ritmo acelerado, linguagem coloquial.
+
+O roteiro deve conter SOMENTE falas (entre aspas) e linhas [VISUAL] + tags globais opcionais. Nenhuma outra marcação. Produza agora o roteiro direto sobre: {topic}

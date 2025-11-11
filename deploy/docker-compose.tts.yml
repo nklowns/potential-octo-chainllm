@@ -21,16 +21,16 @@ services:
     env_file:
       - ../.env
     environment:
-      - PIPER_VOICE=pt_BR-faber-medium
-      - PIPER_PORT=${TTS_PORT:-5000}
+      - PIPER_PORT=${PIPER_PORT}
     volumes:
       - ../data/output/audio:${OUTPUT_AUDIO}
+      - ../config:/app/config:ro
       - piper-voices:/data
     working_dir: /app
     # HTTP server mode (compatível com código existente)
-    command: ["server", "-m", "pt_BR-faber-medium", "--host", "0.0.0.0", "--port", "${TTS_PORT:-5000}"]
+    command: ["server", "--host", "0.0.0.0", "--port", "${PIPER_PORT}"]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${TTS_PORT:-5000}/voices || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${PIPER_PORT}/voices || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -39,7 +39,7 @@ services:
       - traefik.enable=true
       - traefik.docker.network=proxy_net
       ### Piper TTS (GPL v1.3.1)
-      - traefik.http.services.${TTS_SERVICE_NAME}.loadbalancer.server.port=${TTS_PORT:-5000}
-      - traefik.http.routers.${TTS_SERVICE_NAME}.entrypoints=${TRAEFIK_ENTRYPOINT}
-      - traefik.http.routers.${TTS_SERVICE_NAME}.rule=Host(`${TTS_SERVICE_NAME}.${DOMAIN_DUCKDNS}`) || Host(`${TTS_SERVICE_NAME}.${DOMAIN_LOCAL}`)
-      - traefik.http.routers.${TTS_SERVICE_NAME}.tls.certresolver=myresolver
+      - traefik.http.services.${PIPER_SERVICE_NAME}.loadbalancer.server.port=${PIPER_PORT}
+      - traefik.http.routers.${PIPER_SERVICE_NAME}.entrypoints=${TRAEFIK_ENTRYPOINT}
+      - traefik.http.routers.${PIPER_SERVICE_NAME}.rule=Host(`${PIPER_SERVICE_NAME}.${DOMAIN_DUCKDNS}`) || Host(`${PIPER_SERVICE_NAME}.${DOMAIN_LOCAL}`)
+      - traefik.http.routers.${PIPER_SERVICE_NAME}.tls.certresolver=myresolver

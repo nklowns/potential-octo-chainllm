@@ -27,13 +27,7 @@ class Config:
     OLLAMA_NUM_PREDICT: int = int(os.getenv('OLLAMA_NUM_PREDICT', '500'))
     OLLAMA_RATE_LIMIT: int = int(os.getenv('OLLAMA_RATE_LIMIT', '0'))
 
-    # TTS configuration
-    TTS_SERVER_URL: str = os.getenv('TTS_BASE_URL', 'http://piper-tts:5000')
-    TTS_VOICE: str = os.getenv('TTS_VOICE', 'pt_BR-faber-medium')
-    TTS_LENGTH_SCALE: float = float(os.getenv('TTS_LENGTH_SCALE', '1.0'))
-    TTS_NOISE_SCALE: float = float(os.getenv('TTS_NOISE_SCALE', '0.667'))
-    TTS_NOISE_W_SCALE: float = float(os.getenv('TTS_NOISE_W_SCALE', '0.8'))
-    TTS_RATE_LIMIT: int = int(os.getenv('TTS_RATE_LIMIT', '0'))
+    # TTS configuration removida: preferir configuração via JSON (voices.json)
 
     # Input/Output paths
     # Input/Output paths

@@ -209,3 +209,79 @@ def _write_cache_metrics(metrics_dir: Path):
         Path(tmp).replace(metrics_path)
     except Exception:
         pass
+
+# ------------------------- TTS synthesis metrics -------------------------
+_tts_lock = threading.Lock()
+_tts_counts: Dict[str, int] = {}  # key: backend|voice|status
+_tts_chars_sum: Dict[str, int] = {}  # key: backend|voice
+_tts_duration_sum: Dict[str, int] = {}  # key: backend|voice
+_tts_duration_count: Dict[str, int] = {}  # key: backend|voice
+
+def update_tts_metrics(metrics_dir: Path, backend: str, voice: str, status: str, chars: int, duration_ms: int):
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    key_status = f"{backend}|{voice}|{status}"
+    key_voice = f"{backend}|{voice}"
+    with _tts_lock:
+        _tts_counts[key_status] = _tts_counts.get(key_status, 0) + 1
+        if status == 'ok':
+            _tts_chars_sum[key_voice] = _tts_chars_sum.get(key_voice, 0) + int(chars)
+            _tts_duration_sum[key_voice] = _tts_duration_sum.get(key_voice, 0) + int(duration_ms)
+            _tts_duration_count[key_voice] = _tts_duration_count.get(key_voice, 0) + 1
+
+        lines = []
+        lines.append('# TYPE tts_synth_total counter')
+        lines.append('# TYPE tts_synth_chars_sum counter')
+        lines.append('# TYPE tts_synth_duration_ms_sum counter')
+        lines.append('# TYPE tts_synth_duration_ms_count counter')
+        for k, v in _tts_counts.items():
+            b, vname, st = k.split('|', 3)
+            label = _fmt_labels({"backend": b, "voice": vname, "status": st})
+            lines.append(f'tts_synth_total{label} {v}')
+        for k, v in _tts_chars_sum.items():
+            b, vname = k.split('|', 1)
+            label = _fmt_labels({"backend": b, "voice": vname})
+            lines.append(f'tts_synth_chars_sum{label} {v}')
+        for k, v in _tts_duration_sum.items():
+            b, vname = k.split('|', 1)
+            label = _fmt_labels({"backend": b, "voice": vname})
+            lines.append(f'tts_synth_duration_ms_sum{label} {v}')
+        for k, v in _tts_duration_count.items():
+            b, vname = k.split('|', 1)
+            label = _fmt_labels({"backend": b, "voice": vname})
+            lines.append(f'tts_synth_duration_ms_count{label} {v}')
+        content = '\n'.join(lines) + '\n'
+        metrics_path = metrics_dir / 'tts_metrics.prom'
+        try:
+            with tempfile.NamedTemporaryFile('w', encoding='utf-8', delete=False, dir=metrics_dir, suffix='.tmp') as tf:
+                tf.write(content)
+                tmp = tf.name
+            Path(tmp).replace(metrics_path)
+        except Exception:
+            pass
+
+
+# ------------------------- Test helpers -------------------------
+def reset_all_metrics():
+    """Reset all in-memory metric counters. Intended for unit tests only."""
+    global _http_requests, _http_duration_sum, _http_duration_count
+    global _gate_runs, _gate_duration_sum, _gate_duration_count
+    global _cache_hits, _cache_misses, _cache_sizes
+    global _tts_counts, _tts_chars_sum, _tts_duration_sum, _tts_duration_count
+
+    with _http_lock:
+        _http_requests = {}
+        _http_duration_sum = {}
+        _http_duration_count = {}
+    with _gate_lock:
+        _gate_runs = {}
+        _gate_duration_sum = {}
+        _gate_duration_count = {}
+    with _cache_lock:
+        _cache_hits = {"meta": 0, "segment": 0}
+        _cache_misses = {"meta": 0, "segment": 0}
+        _cache_sizes = {"meta": 0, "segment": 0}
+    with _tts_lock:
+        _tts_counts = {}
+        _tts_chars_sum = {}
+        _tts_duration_sum = {}
+        _tts_duration_count = {}

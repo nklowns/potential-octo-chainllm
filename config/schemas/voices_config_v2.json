@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VoicesConfigV2",
+  "type": "object",
+  "required": ["version", "available_voices"],
+  "properties": {
+    "version": { "type": "integer", "enum": [2] },
+    "default_voice": { "type": "string" },
+    "available_backends": {
+      "type": "object",
+      "description": "Configurações dos backends TTS (opcional em v2)",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "properties": {
+            "base_url": { "type": "string" },
+            "defaults": {
+              "type": "object",
+              "properties": {
+                "length_scale": { "type": "number" },
+                "noise_scale": { "type": "number" },
+                "noise_w_scale": { "type": "number" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "available_voices": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "required": ["backend", "model_id"],
+          "properties": {
+            "backend": { "type": "string", "enum": ["piper", "coqui", "mock", "external"] },
+            "model_id": { "type": "string" },
+            "language": { "type": "string" },
+            "gender": { "type": "string", "enum": ["male", "female", "neutral"] },
+            "quality": { "type": "string", "enum": ["low", "medium", "high"] },
+            "params": { "type": "object" },
+            "capabilities": {
+              "type": "object",
+              "properties": {
+                "supports_tone": { "type": "boolean" },
+                "supports_ssml": { "type": "boolean" }
+              },
+              "additionalProperties": true
+            },
+            "metadata": { "type": "object" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

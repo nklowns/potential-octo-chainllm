@@ -1,12 +1,48 @@
 {
+  "version": 2,
+  "default_voice": "piper_pt_br",
+  "available_backends": {
+    "piper": {
+      "base_url": "http://piper-tts:5000",
+      "defaults": {
+        "length_scale": 1.0,
+        "noise_scale": 0.667,
+        "noise_w_scale": 0.8
+      }
+    }
+  },
   "available_voices": {
     "piper_pt_br": {
-      "model": "pt_BR/faber/medium",
-      "description": "Voz masculina em português brasileiro"
+      "backend": "piper",
+      "model_id": "pt_BR-faber-medium",
+      "language": "pt-BR",
+      "gender": "male",
+      "quality": "medium",
+      "params": {},
+      "capabilities": {
+        "supports_tone": false,
+        "supports_ssml": false
+      },
+      "metadata": {
+        "description": "Voz masculina em português brasileiro"
+      }
     },
-    "piper_pt_br_female": {
-      "model": "pt_BR/edresson/medium",
-      "description": "Voz feminina em português brasileiro"
+    "piper_pt_br_alternate": {
+      "backend": "piper",
+      "model_id": "pt_BR-cadu-medium",
+      "language": "pt-BR",
+      "gender": "male",
+      "quality": "medium",
+      "params": {
+        "length_scale": 0.95
+      },
+      "capabilities": {
+        "supports_tone": false,
+        "supports_ssml": false
+      },
+      "metadata": {
+        "description": "Voz masculina em português brasileiro (alternativa)"
+      }
     }
   }
 }

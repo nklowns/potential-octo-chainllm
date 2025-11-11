@@ -66,12 +66,63 @@ set -e
 
 DATA_DIR='/data'
 COMMAND="$1"
-shift
+shift || true
 
-# Download da voz pt_BR-faber-medium se não existir
-if [ ! -f "${DATA_DIR}/pt_BR-faber-medium.onnx" ]; then
-    echo "📥 Baixando voz pt_BR-faber-medium..."
-    python3 -m piper.download_voices pt_BR-faber-medium --data-dir "${DATA_DIR}"
+# Deriva vozes a partir de /app/config/voices.json se disponível (v2 com available_voices e backends opcionais)
+CFG_JSON="/app/config/voices.json"
+DEFAULT_MODEL=""
+ALL_MODELS=""
+if [ -f "$CFG_JSON" ]; then
+  # Extrai modelo default e lista de modelos do voices.json
+  readarray -t LINES < <(python3 - <<'PY'
+import json
+from pathlib import Path
+p = Path('/app/config/voices.json')
+try:
+  d = json.loads(p.read_text(encoding='utf-8'))
+  voices = d.get('available_voices', {})
+  dv = d.get('default_voice')
+  if not dv or dv not in voices:
+    dv = next(iter(voices.keys()), None)
+  default_model = voices.get(dv, {}).get('model_id') if dv else ''
+  models = []
+  for v in voices.values():
+    mid = v.get('model_id')
+    if isinstance(mid, str) and mid not in models:
+      models.append(mid)
+  print(default_model)
+  print(','.join(models))
+except Exception:
+  print('')
+  print('')
+PY
+)
+  DEFAULT_MODEL="${LINES[0]}"
+  ALL_MODELS="${LINES[1]}"
+fi
+
+# Pré-download de vozes
+preload_voice() {
+  local v="$1"
+  v="${v// /}" # remove espaços
+  if [ -z "$v" ]; then return; fi
+  if [ ! -f "${DATA_DIR}/${v}.onnx" ]; then
+    echo "📥 Baixando voz ${v}..."
+    python3 -m piper.download_voices "$v" --data-dir "${DATA_DIR}" || echo "⚠️ Falha ao baixar ${v}"
+  fi
+}
+
+# Baixar voz principal (se definido)
+if [ -n "$DEFAULT_MODEL" ]; then
+  preload_voice "$DEFAULT_MODEL"
+fi
+
+# Baixar vozes adicionais, se configuradas
+if [ -n "$ALL_MODELS" ]; then
+  IFS=',' read -r -a _VOICES <<< "$ALL_MODELS"
+  for vv in "${_VOICES[@]}"; do
+    preload_voice "$vv"
+  done
 fi
 
 case "${COMMAND}" in
@@ -83,7 +134,17 @@ case "${COMMAND}" in
     ;;
   server)
     echo "🚀 Iniciando Piper TTS HTTP Server v1.3.1 (GPL)"
-    exec python3 -m piper.http_server --data-dir "${DATA_DIR}" "$@"
+    # Se -m não foi informado explicitamente e temos DEFAULT_MODEL, injeta
+    ARGS=("--data-dir" "${DATA_DIR}")
+    HAVE_MODEL_ARG=0
+    for a in "$@"; do
+      if [ "$a" = "-m" ] || [[ "$a" == "--model"* ]]; then HAVE_MODEL_ARG=1; fi
+      ARGS+=("$a")
+    done
+    if [ $HAVE_MODEL_ARG -eq 0 ] && [ -n "$DEFAULT_MODEL" ]; then
+      ARGS=("-m" "$DEFAULT_MODEL" "${ARGS[@]}")
+    fi
+    exec python3 -m piper.http_server "${ARGS[@]}"
     ;;
   ""|help|-h|--help)
     echo "Usage: <command> [args...]"
@@ -107,4 +168,4 @@ USER piper
 EXPOSE 5000
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["server", "-m", "pt_BR-faber-medium", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["server", "--host", "0.0.0.0", "--port", "5000"]

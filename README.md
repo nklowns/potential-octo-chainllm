@@ -111,10 +111,6 @@ DOMAIN_DUCKDNS=drake-ayu.duckdns.org
 # Ollama (usar serviço externo ou local)
 OLLAMA_BASE_URL=https://ollama.drake-ayu.duckdns.org
 OLLAMA_MODEL=gemma3:4b
-
-# Piper TTS
-TTS_BASE_URL=https://piper-tts.drake-ayu.duckdns.org
-TTS_VOICE=pt_BR-faber-medium
 ```
 
 ### 3. Crie Arquivo de Tópicos
@@ -227,12 +223,22 @@ OLLAMA_MODEL=gemma3:4b      # ou qwen3-vl:4b, llama3.2, etc
 ```
 
 **Piper TTS:**
-```bash
-TTS_BASE_URL=https://piper-tts.drake-ayu.duckdns.org
-TTS_VOICE=pt_BR-faber-medium
-TTS_LENGTH_SCALE=1.0        # Velocidade (0.5-2.0)
-TTS_NOISE_SCALE=0.667       # Variabilidade de áudio
-TTS_NOISE_W_SCALE=0.8       # Variabilidade de fonemas
+Configuração via `config/voices.json` (v2). Exemplo:
+
+```jsonc
+{
+     "version": 2,
+     "default_voice": "piper_pt_br",
+     "available_backends": {
+          "piper": {
+               "base_url": "http://piper-tts:5000",
+               "defaults": { "length_scale": 1.0, "noise_scale": 0.667, "noise_w_scale": 0.8 }
+          }
+     },
+     "available_voices": {
+          "piper_pt_br": { "backend": "piper", "model_id": "pt_BR-faber-medium", "params": {} }
+     }
+}
 ```
 
 **Caminhos (Container):**

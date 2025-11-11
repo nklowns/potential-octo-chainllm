@@ -7,6 +7,7 @@ from typing import Any, Dict
 from pathlib import Path
 
 from src.pipeline import config as pipeline_config
+from src.infrastructure.config.tts_backends import TTSBackendsConfig
 from src.quality.config import QualityConfig
 
 
@@ -32,13 +33,18 @@ class ConfigProvider:
         qc = self._quality
         script_cfg = qc.script_config
         audio_cfg = qc.audio_config
+        # Determina base_url do Piper (ou vazio se não definido) a partir do voices.json (v2 com backends)
+        backends = TTSBackendsConfig()
+        piper_backend = backends.get_backend('piper')
+        tts_base_url = piper_backend.base_url if piper_backend else ''
+
         return PipelineConfigView(
             quality_enabled=qc.enabled,
             llm_assisted=qc.llm_assisted,
             script_min_words=script_cfg.get('min_words', 10),
             script_max_words=script_cfg.get('max_words', 2000),
             audio_min_sample_rate=audio_cfg.get('min_sample_rate', 16000),
-            tts_base_url=pipeline_config.TTS_SERVER_URL,
+            tts_base_url=tts_base_url,
             ollama_base_url=pipeline_config.OLLAMA_BASE_URL,
             script_workers=int(pipeline_config.__dict__.get('SCRIPT_WORKERS', 1)) if hasattr(pipeline_config, 'SCRIPT_WORKERS') else 1,
             audio_workers=int(pipeline_config.__dict__.get('AUDIO_WORKERS', 1)) if hasattr(pipeline_config, 'AUDIO_WORKERS') else 1,

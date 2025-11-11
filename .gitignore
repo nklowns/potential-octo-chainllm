@@ -58,8 +58,11 @@ docker-compose.override.yml
 data/output/scripts/*.txt
 data/output/scripts/*.json
 data/output/audio/*.wav
+data/output/audio/cache/
 data/output/images/*.png
+data/output/images/cues/*.txt
 data/output/quality_gates/
+data/output/metrics/
 
 # Mantém estrutura de diretórios mas ignora conteúdo
 !data/output/scripts/.gitkeep
