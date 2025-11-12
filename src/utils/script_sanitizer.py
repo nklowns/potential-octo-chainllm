@@ -2,11 +2,11 @@
 
 Regras:
  - Apenas trechos entre aspas são considerados NARRAÇÃO. Todo o resto é ignorado.
- - Linhas iniciadas com [VISUAL] são indicações visuais e NÃO devem ser narradas.
- - Linhas iniciadas com (Imagem: ...) ou (imagem: ...) também são descartadas.
+ - Linhas iniciadas com [TAG: valor] NÃO devem ser narradas.
  - Remove aspas dos trechos narráveis antes de enviar ao TTS.
  - Mantém ordem original dos trechos narrados.
  - Faz leitura de controles de voz globais: [TONE: ...], [PACE: ...].
+ - Identifica linhas de indicações visuais: [VISUAL: ...].
 """
 from __future__ import annotations
 
@@ -18,11 +18,7 @@ def _is_visual_line(line: str) -> bool:
     l = line.strip()
     if not l:
         return False
-    if l.startswith('[VISUAL]'):
-        return True
-    if l.lower().startswith('(imagem:') or l.lower().startswith('(imagem') or l.lower().startswith('(image:'):
-        return True
-    if l.lower().startswith('(imagem'):
+    if l.lower().startswith('[visual:'):
         return True
     return False
 
